@@ -16,13 +16,17 @@ Scheduler.
 
 ## Deploying the Functions
 
-**Run the following commands inside the GCP VM's SSH terminal**
+**Run the following commands inside the local terminal**
+Got to project directory and open terminal 
+cd vm/scheduler
+
 
 ### 1. Deploy the function to **start** the VM
 
 ```bash
 gcloud functions deploy start_vm \
   --runtime python312 \
+  --region=asia-south1 \
   --trigger-http \
   --allow-unauthenticated \
   --entry-point manage_vm \
@@ -34,6 +38,7 @@ gcloud functions deploy start_vm \
 ```bash
 gcloud functions deploy stop_vm \
   --runtime python311 \
+  --region=asia-south1 \
   --trigger-http \
   --allow-unauthenticated \
   --entry-point manage_vm \
@@ -49,9 +54,10 @@ gcloud functions deploy stop_vm \
 ```bash
 gcloud scheduler jobs create http start-vm-job \
   --schedule="43 3 * * 1-5" \
+  --time-zone="Asia/Kolkata" \
   --uri="<function_uri>" \
   --http-method=GET \
-  --location=us-central1
+  --location=asia-south1
 ```
 
 ### 🔴 Stop VM at **3:32 PM IST** (10:02 UTC)
@@ -59,9 +65,10 @@ gcloud scheduler jobs create http start-vm-job \
 ```bash
 gcloud scheduler jobs create http stop-vm-job \
   --schedule="2 10 * * 1-5" \
+  --time-zone="Asia/Kolkata" \
   --uri="<function_uri>" \
   --http-method=GET \
-  --location=us-central1
+  --location=asia-south1
 ```
 
 > ⚠️ **Note**: The Scheduler cron uses **UTC timezone**, not the server timezone.
