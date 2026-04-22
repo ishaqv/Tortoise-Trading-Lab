@@ -28,8 +28,12 @@ def is_liquid_stock(breakout_candle):
 def get_previous_day_data(df):
     date_only = df['date'].dt.date
     unique_dates = date_only.unique()
+
+    if len(unique_dates) < 2:
+        return df.iloc[0:0].copy()  # empty DataFrame with same structure
+
     yesterday = unique_dates[-2]
-    return df[df['date'].dt.date == yesterday].copy()
+    return df[date_only == yesterday].copy()
 
 
 def calculate_gap(df_trading_day, df_previous_day):
