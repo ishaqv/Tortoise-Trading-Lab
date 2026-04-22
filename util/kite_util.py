@@ -8,8 +8,9 @@ import pandas as pd
 import pyotp
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import NetworkException, DataException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from util.db_util import write_historical_data
@@ -22,47 +23,86 @@ from util.trade_logger import log
 kite: Optional[KiteConnect] = None
 ACCESS_TOKEN_FILE = "access_token.json"
 _last_request_time: float = 0
+MAX_RETRIES = 3
+
+
+def wait_for_state(wait, locator, timeout_msg):
+    try:
+        return wait.until(EC.presence_of_element_located(locator))
+    except TimeoutException:
+        raise Exception(f"STATE FAILED: {timeout_msg}")
+
+
+def safe_type(wait, driver, locator, value):
+    for _ in range(MAX_RETRIES):
+        try:
+            el = wait.until(EC.presence_of_element_located(locator))
+            el.clear()
+            el.send_keys(value)
+            return
+        except StaleElementReferenceException:
+            time.sleep(0.5)
+    raise Exception(f"TYPE FAILED: {locator}")
+
+
+def safe_click(wait, driver, locator):
+    for _ in range(MAX_RETRIES):
+        try:
+            el = wait.until(EC.presence_of_element_located(locator))
+            driver.execute_script("arguments[0].click();", el)
+            return
+        except StaleElementReferenceException:
+            time.sleep(0.5)
+    raise Exception(f"CLICK FAILED: {locator}")
+
+
+def wait_for_url(wait, text, timeout_msg):
+    try:
+        wait.until(EC.url_contains(text))
+    except TimeoutException:
+        raise Exception(f"URL STATE FAILED: {timeout_msg}")
 
 
 def login_with_selenium():
-    """
-    Automates the Zerodha Kite Connect login process using Selenium.
-
-    This function performs a headless browser-based login using Zerodha credentials and TOTP-based 2FA.
-    It navigates to the login page, inputs the user ID and password, enters the TOTP, and finally extracts
-    the `request_token` from the redirected URL after successful login.
-
-    Notes:
-        - This function uses headless Chrome. Ensure that ChromeDriver is installed and properly configured.
-        - Any change in Zerodha's frontend (e.g., CSS selectors) may break this automation.
-        - `request_token` is valid for only a few minutes. Use it immediately to generate the session.
-    """
-
     driver = get_headless_chrome_driver()
+    wait = WebDriverWait(driver, 20)
+
     login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={API_KEY}"
     driver.get(login_url)
 
     try:
-        WebDriverWait(driver, 15).until(
-            ec.presence_of_element_located((By.CSS_SELECTOR, "input[type='text']"))
-        )
+        # -------------------------
+        # STATE 1: Login Page Ready
+        # -------------------------
+        wait_for_state(wait, (By.CSS_SELECTOR, "input[type='text']"), "Login input not visible")
 
-        driver.find_element(By.CSS_SELECTOR, "input[type='text']").send_keys(USER_ID)
-        driver.find_element(By.CSS_SELECTOR, "input[type='password']").send_keys(PASSWORD)
-        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+        # -------------------------
+        # ACTION: Enter credentials
+        # -------------------------
+        safe_type(wait, driver, (By.CSS_SELECTOR, "input[type='text']"), USER_ID)
+        safe_type(wait, driver, (By.CSS_SELECTOR, "input[type='password']"), PASSWORD)
 
+        safe_click(wait, driver, (By.XPATH, "//button[@type='submit']"))
+
+        # -------------------------
+        # STATE 2: TOTP Page Ready
+        # -------------------------
+        wait_for_state(wait, (By.CSS_SELECTOR, "input[type='number']"), "TOTP input not visible")
+
+        # ensure fresh TOTP window
+        time.sleep(1)
         totp = get_totp_token(TOTP_SECRET)
 
-        WebDriverWait(driver, 15).until(
-            ec.presence_of_element_located((By.CSS_SELECTOR, "input[type='number']"))
-        )
+        # -------------------------
+        # ACTION: Enter TOTP
+        # -------------------------
+        safe_type(wait, driver, (By.CSS_SELECTOR, "input[type='number']"), totp)
+        safe_click(wait, driver, (By.XPATH, "//button[@type='submit']"))
 
-        driver.find_element(By.CSS_SELECTOR, "input[type='number']").send_keys(totp)
-        driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
-
-        WebDriverWait(driver, 30).until(
-            ec.url_contains("request_token")
-        )
+        # -------------------------
+        # STATE 3: Redirect success
+        # -------------------------
+        wait_for_url(wait, "request_token", "Login redirect failed")
 
         current_url = driver.current_url
         request_token = current_url.split("request_token=")[-1].split("&")[0]
