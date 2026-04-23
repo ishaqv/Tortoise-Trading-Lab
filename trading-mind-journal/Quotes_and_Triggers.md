@@ -4,7 +4,7 @@
 
 > “Patience is a position.”
 
-> “You don’t control outcomes. You control exposure.(You decide enter a trade or not)”
+> “You don’t control outcomes. You control exposure.(You decide whether enter a trade or not)”
 
 > “The goal is not to win every trade. It’s to be ready for the next one.”
 

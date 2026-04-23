@@ -61,9 +61,11 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
 
 
     ohlcv_data_list = []
-    to_date = end_date
+
     if end_date > to_day:
-        to_date = to_day
+        end_date = to_day
+
+    to_date = end_date
 
     print(f"Fetching data for {symbol} | Range: {start_date.date()} → {end_date.date()}")
 
