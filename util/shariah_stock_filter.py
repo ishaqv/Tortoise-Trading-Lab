@@ -6,7 +6,7 @@ import pandas as pd
 
 from util.global_variables import IST
 from util.kite_util import get_kite_object
-from util.shariah_stock_scrapper import get_shariah_compliant_symbols
+from util.shariah_stock_scrapper import get_cached_shariah_symbols
 from util.trade_logger import log
 
 shariah_compliant_stocks = None
@@ -57,7 +57,7 @@ def is_shariah_compliant(symbol_file_path, symbol: str) -> bool:
     global shariah_compliant_stocks
     if shariah_compliant_stocks is None:
         try:
-            shariah_compliant_stocks = get_shariah_compliant_symbols(symbol_file_path)
+            shariah_compliant_stocks = get_cached_shariah_symbols(symbol_file_path)
         except Exception as e:
             log("exception", f"❌ Failed to fetch Shariah symbols: {e}")
             return False

@@ -6,18 +6,14 @@ from typing import Optional
 
 import pandas as pd
 import pyotp
+import requests
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import NetworkException, DataException
-from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from util.db_util import write_historical_data
 from util.global_variables import API_SECRET, USER_ID, PASSWORD, TOTP_SECRET, KITE_API_REQUEST_RATE_PER_SECOND, \
     BUFFER_SIZE, SWING_CANDLE_LIMIT
 from util.global_variables import IST, API_KEY
-from util.selenium_driver import get_headless_chrome_driver
 from util.trade_logger import log
 
 kite: Optional[KiteConnect] = None
@@ -26,91 +22,86 @@ _last_request_time: float = 0
 MAX_RETRIES = 3
 
 
-def wait_for_state(wait, locator, timeout_msg):
-    try:
-        return wait.until(EC.presence_of_element_located(locator))
-    except TimeoutException:
-        raise Exception(f"STATE FAILED: {timeout_msg}")
+def get_access_token_from_kite() -> str:
+    session = requests.Session()
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer": "https://kite.zerodha.com/",
+        "X-Kite-Version": "3",
+    }
 
-def safe_type(wait, driver, locator, value):
-    for _ in range(MAX_RETRIES):
-        try:
-            el = wait.until(EC.presence_of_element_located(locator))
-            el.clear()
-            el.send_keys(value)
-            return
-        except StaleElementReferenceException:
-            time.sleep(0.5)
-    raise Exception(f"TYPE FAILED: {locator}")
+    # -------------------------
+    # STEP 1: Login
+    # -------------------------
+    resp = session.post(
+        "https://kite.zerodha.com/api/login",
+        data={
+            "user_id": USER_ID,
+            "password": PASSWORD,
+        },
+        headers=headers
+    )
+    resp.raise_for_status()
 
+    body = resp.json()
+    if body.get("status") != "success":
+        raise Exception(f"Login failed: {body}")
 
-def safe_click(wait, driver, locator):
-    for _ in range(MAX_RETRIES):
-        try:
-            el = wait.until(EC.presence_of_element_located(locator))
-            driver.execute_script("arguments[0].click();", el)
-            return
-        except StaleElementReferenceException:
-            time.sleep(0.5)
-    raise Exception(f"CLICK FAILED: {locator}")
+    request_id = body["data"]["request_id"]
 
+    # -------------------------
+    # STEP 2: TOTP
+    # -------------------------
+    # Sleep 1s to ensure TOTP window is fresh
+    time.sleep(1)
+    totp = pyotp.TOTP(TOTP_SECRET).now()
 
-def wait_for_url(wait, text, timeout_msg):
-    try:
-        wait.until(EC.url_contains(text))
-    except TimeoutException:
-        raise Exception(f"URL STATE FAILED: {timeout_msg}")
+    resp = session.post(
+        "https://kite.zerodha.com/api/twofa",
+        data={
+            "user_id": USER_ID,
+            "request_id": request_id,
+            "twofa_value": totp,
+            "twofa_type": "totp",
+        },
+        headers=headers
+    )
+    resp.raise_for_status()
 
+    body = resp.json()
+    if body.get("status") != "success":
+        raise Exception(f"TOTP failed: {body}")
 
-def login_with_selenium():
-    driver = get_headless_chrome_driver()
-    wait = WebDriverWait(driver, 20)
+    # -------------------------
+    # STEP 3: Get request_token
+    # -------------------------
+    resp = session.get(
+        f"https://kite.zerodha.com/connect/login?v=3&api_key={API_KEY}",
+        allow_redirects=True,
+        headers={
+            "User-Agent": headers["User-Agent"],
+            "Referer": "https://kite.zerodha.com/",
+        }
+    )
 
-    login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={API_KEY}"
-    driver.get(login_url)
+    final_url = resp.url
+    if "request_token" not in final_url:
+        raise Exception(f"Login failed, final URL: {final_url}")
 
-    try:
-        # -------------------------
-        # STATE 1: Login Page Ready
-        # -------------------------
-        wait_for_state(wait, (By.CSS_SELECTOR, "input[type='text']"), "Login input not visible")
+    request_token = final_url.split("request_token=")[-1].split("&")[0]
 
-        # -------------------------
-        # ACTION: Enter credentials
-        # -------------------------
-        safe_type(wait, driver, (By.CSS_SELECTOR, "input[type='text']"), USER_ID)
-        safe_type(wait, driver, (By.CSS_SELECTOR, "input[type='password']"), PASSWORD)
+    # -------------------------
+    # STEP 4: Exchange for access_token
+    # -------------------------
+    global kite
+    kite = KiteConnect(api_key=API_KEY)
+    kite.timeout = 30
+    data = kite.generate_session(request_token, api_secret=API_SECRET)
+    access_token = data["access_token"]
 
-        safe_click(wait, driver, (By.XPATH, "//button[@type='submit']"))
-
-        # -------------------------
-        # STATE 2: TOTP Page Ready
-        # -------------------------
-        wait_for_state(wait, (By.CSS_SELECTOR, "input[type='number']"), "TOTP input not visible")
-
-        # ensure fresh TOTP window
-        time.sleep(1)
-        totp = get_totp_token(TOTP_SECRET)
-
-        # -------------------------
-        # ACTION: Enter TOTP
-        # -------------------------
-        safe_type(wait, driver, (By.CSS_SELECTOR, "input[type='number']"), totp)
-        safe_click(wait, driver, (By.XPATH, "//button[@type='submit']"))
-
-        # -------------------------
-        # STATE 3: Redirect success
-        # -------------------------
-        wait_for_url(wait, "request_token", "Login redirect failed")
-
-        current_url = driver.current_url
-        request_token = current_url.split("request_token=")[-1].split("&")[0]
-
-        return request_token
-
-    finally:
-        driver.quit()
+    return access_token
 
 
 def get_totp_token(secret):
@@ -137,7 +128,7 @@ def save_access_token(token: str):
         json.dump({"access_token": token}, f)
 
 
-def load_access_token() -> str | None:
+def load_cached_access_token() -> str | None:
     if not os.path.exists(ACCESS_TOKEN_FILE):
         return None
     with open(ACCESS_TOKEN_FILE, "r") as f:
@@ -145,71 +136,47 @@ def load_access_token() -> str | None:
         return data.get("access_token")
 
 
-def get_access_token():
-    """
-    Ensures the global kite object is valid and returns the current access token.
-
-    Flow:
-      1. If global kite exists and profile() succeeds → return its token (no-op).
-      2. If global kite is stale → set kite=None, fall through.
-      3. Load saved token from file (written by Process A or a previous session).
-         If valid → restore global kite from it.
-      4. If saved token is also expired → fresh Selenium login.
-    """
-    global kite
-
-    # Step 1: try token saved to disk
-    access_token = load_access_token()
-
-    if access_token:
-        kite = KiteConnect(api_key=API_KEY)
-        kite.set_access_token(access_token)
-        try:
-            kite.profile()
-            kite.timeout = 30
-            log("info", "Restored session from saved token.")
-            return access_token
-        except Exception as e:
-            log("info", f"Saved token expired, logging in fresh... ({e})")
-
-    # Step 2: fresh Selenium login
-    log("info", "Starting Selenium login...")
-    request_token = login_with_selenium()
-    kite = KiteConnect(api_key=API_KEY)
-    data = kite.generate_session(request_token, api_secret=API_SECRET)
-    access_token = data["access_token"]
-    kite.set_access_token(access_token)
-    kite.timeout = 30
-    save_access_token(access_token)
-    log("info", "New session created and saved.")
-
-    return access_token
-
-
 def cache_kite_access_token() -> None:
     """
     Called by Process A to log in and persist the token to disk.
     Process B will pick it up via load_access_token() on startup.
     """
-    request_token = login_with_selenium()
-    kite_token_manager = KiteConnect(api_key=API_KEY)
-    data = kite_token_manager.generate_session(request_token, api_secret=API_SECRET)
-    access_token = data["access_token"]
+    access_token = get_access_token_from_kite()
     save_access_token(access_token)
 
 
 def get_kite_object() -> KiteConnect:
     """
-    Returns the global KiteConnect object, always ensuring the token is valid.
-
-    Delegates fully to get_access_token() which manages the global kite instance.
-    Never creates a parallel kite instance — avoids stale reference bugs.
+    Returns a valid KiteConnect instance.
+    Tries cached token first, falls back to fresh login.
     """
     global kite
-    if not kite:
+    if kite:
+        return kite
+
+    # Try cached token
+    access_token = load_cached_access_token()
+    if access_token:
         kite = KiteConnect(api_key=API_KEY)
-        kite.set_access_token(get_access_token())
+        kite.set_access_token(access_token)
         kite.timeout = 30
+        try:
+            kite.profile()
+            log("info", "Restored session from cached token.")
+            return kite
+        except Exception as e:
+            log("info", f"Cached token expired ({e}), logging in fresh...")
+            kite = None
+
+    # Fresh login
+    log("info", "Starting fresh login...")
+    access_token = get_access_token_from_kite()
+    save_access_token(access_token)
+    kite = KiteConnect(api_key=API_KEY)
+    kite.set_access_token(access_token)
+    kite.timeout = 30
+    log("info", "New session created and saved.")
+
     return kite
 
 

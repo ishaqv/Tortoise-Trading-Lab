@@ -90,34 +90,7 @@ sudo ufw enable
 
 ---
 
-
-## 🌎 9. Install Google Chrome (Required for selenium automated login)
-
-```bash
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo apt install ./google-chrome-stable_current_amd64.deb
-```
-
-### Install ChromeDriver
-
-The only thing that matters is: ChromeDriver version must match your Chrome version.
-If you're using Selenium in Python:
-
-```pip install webdriver-manager```
-
-Then:
-
-``` 
-from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-
-driver = webdriver.Chrome(ChromeDriverManager().install()) 
-```
-
-👉 This auto-handles version matching — no manual headache.
----
-
-## 🔑 10. Generate SSH Key for GitHub
+## 🔑 9. Generate SSH Key for GitHub
 
 From the SSH terminal execute the following commands
 
@@ -144,7 +117,7 @@ cat ~/.ssh/id_ed25519.pub
 
 ---
 
-## 🐍 11. Upload Your App (via SSH or Git)
+## 🐍 10. Upload Your App (via SSH or Git)
 
 Using Git:
 
@@ -156,7 +129,7 @@ git pull origin master
 
 ---
 
-## 📦 12. Set Up Python Virtual Environment
+## 📦 11. Set Up Python Virtual Environment
 
 ```bash
 sudo apt install python3-venv
@@ -171,7 +144,7 @@ pip install -r requirements.txt
 
 `sudo timedatectl set-timezone Asia/Kolkata`
 
-## ⏰ 13. Automate Script with Cron
+## ⏰ 12. Automate Script with Cron
 
 🔁 Cron uses system time. Setting system time to IST makes all jobs run in IST.
 
@@ -191,7 +164,7 @@ crontab -l
 
 ---
 
-## ▶️ 14. Run App Manually
+## ▶️ 13. Run App Manually
 
 ```sudo nano .env```
 Then add your environment variables
