@@ -1,8 +1,7 @@
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import time
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -47,22 +46,26 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
       - Neither specified            → defaults to last 10 years
     """
     kite = get_kite_object()
-
+    to_day = datetime.today()
     # --- Resolve date range ---
     if from_year and to_year:
         start_date = datetime(from_year, 1, 1)
         end_date   = datetime(to_year, 12, 31)
     elif num_years:
-        end_date   = datetime.today()
+        end_date = to_day
         start_date = end_date - timedelta(days=365 * num_years)
     else:
-        end_date   = datetime.today()
+        end_date = to_day
         start_date = end_date - timedelta(days=365 * 10)  # default: 10 years
 
-    print(f"Fetching data for {symbol} | Range: {start_date.date()} → {end_date.date()}")
+
 
     ohlcv_data_list = []
     to_date = end_date
+    if end_date > to_day:
+        to_date = to_day
+
+    print(f"Fetching data for {symbol} | Range: {start_date.date()} → {end_date.date()}")
 
     try:
         while to_date > start_date:
@@ -75,8 +78,7 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
                 instrument_token=instrument_token,
                 from_date=from_date,
                 to_date=to_date,
-                interval=INTERVAL,
-                continuous=False
+                interval=INTERVAL
             )
 
             if ohlcv_data:

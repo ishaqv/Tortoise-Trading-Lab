@@ -1,6 +1,6 @@
 # 🧠 Algo Trading Lab – GCP Deployment Guide
 
-This guide walks you through setting up a secure Ubuntu-based VPS on Google Cloud/any cloud to run Python-based trading
+This guide walks you through setting up a secure Debian-based VPS on Google Cloud/any cloud to run Python-based trading
 bot using MySQL and scheduled cron jobs.
 
 ---
@@ -10,11 +10,11 @@ bot using MySQL and scheduled cron jobs.
 Go to [Google Cloud Console](https://console.cloud.google.com) and click “Create Instance”. Use the following
 configuration:
 
-- **Name**: `trading-vps`
+- **Name**: `trading-vm`
 - **Region**: `asia-south1` (Mumbai)
 - **Zone**: `asia-south1-a`
 - **Machine Type**: `e2-medium` (2 vCPU, 4 GB RAM)
-- **Boot Disk**: Ubuntu 22.04 Jammy (x86_64), 10 GB SSD
+- **Boot Disk**: debian-12-bookworm-v20260417, 10 GB SSD (Default)
 - **Firewall**: ✅ Allow HTTP, ✅ Allow HTTPS (optional)
 
 ---
@@ -37,6 +37,12 @@ sudo apt update && sudo apt upgrade -y
 
 ```bash
 sudo apt install -y mysql-server python3-pip build-essential ufw unzip
+```
+
+OR
+
+```bash
+sudo apt install -y mariadb-server python3-pip build-essential ufw unzip
 ```
 
 ---
@@ -84,32 +90,6 @@ sudo ufw enable
 
 ---
 
-## 🌐 8. (Optional) Enable Remote MySQL Access
-
-```bash
-sudo nano /etc/mysql/mysql.conf.d/mysqld.cnf
-```
-
-Change:
-
-```ini
-bind-address = 127.0.0.1
-```
-
-To:
-
-```ini
-bind-address = 0.0.0.0
-```
-
-Then:
-
-```bash
-sudo systemctl restart mysql
-sudo ufw allow 3306
-```
-
----
 
 ## 🌎 9. Install Google Chrome (Required for selenium automated login)
 
@@ -118,33 +98,28 @@ wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 sudo apt install ./google-chrome-stable_current_amd64.deb
 ```
 
----
+### Install ChromeDriver
 
-## 🐍 10. Upload Your App (via SSH or Git)
+The only thing that matters is: ChromeDriver version must match your Chrome version.
+If you're using Selenium in Python:
 
-Using Git:
+```pip install webdriver-manager```
 
-```bash
-git clone git@github.com:your_username/Algo-Trading-Lab.git
-cd Algo-Trading-Lab
-git pull origin master
+Then:
+
+``` 
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
+
+driver = webdriver.Chrome(ChromeDriverManager().install()) 
 ```
 
-use SSH and follow step 12
+👉 This auto-handles version matching — no manual headache.
 ---
 
-## 📦 11. Set Up Python Virtual Environment
+## 🔑 10. Generate SSH Key for GitHub
 
-```bash
-sudo apt install python3-venv
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
----
-
-## 🔑 12. Generate SSH Key for GitHub
+From the SSH terminal execute the following commands
 
 ```bash
 ssh-keygen -t ed25519 -C "your_email@example.com"
@@ -169,6 +144,29 @@ cat ~/.ssh/id_ed25519.pub
 
 ---
 
+## 🐍 11. Upload Your App (via SSH or Git)
+
+Using Git:
+
+```bash
+git clone git@github.com:your_username/Tortoise-Trading-Lab.git
+cd Tortoise-Trading-Lab
+git pull origin master
+```
+
+---
+
+## 📦 12. Set Up Python Virtual Environment
+
+```bash
+sudo apt install python3-venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+---
+
 ## Set the VPS Timezone to IST (Recommended for trading in NSE)
 
 `sudo timedatectl set-timezone Asia/Kolkata`
@@ -181,28 +179,7 @@ cat ~/.ssh/id_ed25519.pub
 crontab -e
 ```
 
-Add these lines (adjust path as needed):
-
-```cron
-*/5 9-15 * * 1-5 bash -c 'source /home/youruser/Algo-Trading-Lab/venv/bin/activate && python3 /home/youruser/Algo-Trading-Lab/intraday_m5_main_app.py'
-30 9 * * 1-5 bash -c 'source /home/youruser/Algo-Trading-Lab/venv/bin/activate && python3 /home/youruser/Algo-Trading-Lab/intraday_m15_main_app.py'
-35 15 * * 1-5 bash -c 'source /home/youruser/Algo-Trading-Lab/venv/bin/activate && python3 /home/youruser/Algo-Trading-Lab/intraday_m15_main_app.py'
-
-35 15 * * 1-5 bash -c 'source /home/youruser/Algo-Trading-Lab/venv/bin/activate && python3 /home/youruser/Algo-Trading-Lab/swing_main_app.py'
-```
-
-```
-# 📖 Breakdown of */15 9-15 * * 1-5
-# Field             Value       Meaning
-# Minutes           */15        Every 15 minutes
-# Hours	            9-15        From 9 AM to 4 PM exclusive (9 to 15 in 24-hour format)
-# Day of Month	    *	        Every day of the month
-# Month	            *	        Every month
-# Day of Week	    1-5	        Only on weekdays: Monday (1) to Friday (5)
-
-# ⏰ What this schedule does:
-# Runs every 15 minutes between 9:00 AM and 3:59 PM, Monday through Friday
-```
+Add those lines from [crontab](../crontab)
 
 Verify:
 
@@ -213,6 +190,11 @@ crontab -l
 ---
 
 ## ▶️ 14. Run App Manually
+
+```sudo nano .env```
+Then add your environment variables
+Save(Ctrl+O)
+Exit(Ctrl+X)
 
 ```bash
 cd Algo-Trading-Lab
@@ -225,7 +207,7 @@ python3 main_app.py
 
 ### Accessing log file
 
-Download log file using the absolute path **/home/user/Algo-Trading-Lab/logs/trading_scanner_{yyyy-mm-dd}.log**
+Download log file using the absolute path **/home/user/Tortoise-Trading-Lab/**/**.log(replace with actual path)**
 
 ### Access MySQL(GCP VM) from Your Local Machine
 
@@ -296,12 +278,38 @@ Here’s the one-liner that will fully update your GCP Ubuntu VM and reboot only
 
 ```sudo apt update && sudo apt full-upgrade -y && sudo apt autoremove -y && sudo apt clean && [ -f /var/run/reboot-required ] && sudo reboot```
 
+### VM Resource Check
+
+From the SSH terminal
+
+### Disk usage
+
+``` 
+df -h / 
+```
+
+sample output
+
+```
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1       9.7G  5.2G  4.0G  57% /
+
+```
+
+### RAM usage
+
+```free -h```
+
+sample output
+
+```
+               total        used        free      shared  buff/cache   available
+Mem:           3.8Gi       593Mi       2.9Gi       544Ki       531Mi       3.3Gi
+Swap:             0B          0B          0B
+```
+
 ## ✅ You're Ready!
 
 Your trading bot is now set up to run securely, automatically, and reliably on a Google Cloud VM with MySQL and cron
 scheduling.
-
-ssh -L 3307:localhost:3306 ishaqvattaparambil@34.44.242.21
-
-gcloud compute ssh trading-vps-vm --zone=us-central1-c -- -L 3307:localhost:3306
 

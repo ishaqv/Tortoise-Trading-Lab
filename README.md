@@ -87,6 +87,11 @@ See [`crontab`](crontab) for the full cron schedule.
 
 Volume ≥ 15x average volume(SMA 20 volume)
 
+**Disclaimer:**
+No setup works forever. Markets evolve, and setups evolve with them. If you fail to adapt, your edge will gradually
+disappear.
+
+
 ---
 
 ## 🎯 Entry Strategy
@@ -117,8 +122,8 @@ Volume ≥ 15x average volume(SMA 20 volume)
 ## 📈 Target Strategy
 
 * Target: Entry + 3R
-* At +3R → Sell 50%, if overall market is bullish, Trail SL and try to extract most out of the move
-* At +3R → Sell 100% if overall market is bearish/sideways
+* At +3R → Sell 50%, if trent has strength, Trail SL and try to extract most out of the move
+* At +3R → Sell 100% if trent has no strength
 * Order Type: Use a Limit SELL order
 
 ![LIMIT SELL.png](LIMIT%20SELL.png)
@@ -127,13 +132,41 @@ Volume ≥ 15x average volume(SMA 20 volume)
 
 ## 💰 Risk Management
 
-* **Risk per trade**: < 1% of total capital
+* **Risk per trade**: < 2% of total capital
 * **No revenge trading**
 * **You will lose.** Your job is to **lose small, fast and smart** and **never let one trade ruin your day**.
 * **SL is a validation stop**, not pain threshold.
 * When the trade fails structurally, exit. Don’t wait for confirmation of failure.
 
+### 📊 Strategy Performance Summary (EVB — Long Only)
 
+```Capital = 5L, Backtest Duration = 3 years```
+
+| Category              | Metric              | Value        |
+|-----------------------|---------------------|--------------|
+| **Trade Stats**       | Total Trades        | 843          |
+|                       | Win Rate            | 45.9%        |
+|                       | Avg Win             | +3.0 R       |
+|                       | Avg Loss            | -1.0 R       |
+|                       | Win/Loss Ratio      | 3.0          |
+|                       | Expectancy          | **+0.8 R**   |
+|                       | Profit Factor       | 2.4          |
+|                       | Sharpe (R)          | 0.4          |
+|                       | Total Return        | 697.4 R      |
+|                       | Total PnL           | ₹43.4L       |
+|                       | CAGR                | 100.4%       |
+|                       | Calmar Ratio        | 14.7         |
+| **Risk**              | Max Drawdown        | -10 R        |
+|                       | Max Drawdown (%)    | -6.8%        |
+|                       | Max Losing Streak   | 10 trades    |
+| **Execution Quality** | Avg MFE (Captured)  | +3.7 R       |
+|                       | Avg MFE (Available) | +11.0 R      |
+|                       | Capture Efficiency  | 48.4%        |
+|                       | Avg MAE             | -2.1 R       |
+|                       | MAE > 0.5R          | 66.8% trades |
+|                       | Avg Trade Duration  | 8.4 min      |
+
+---
 
 #### You can be wrong 60% of the time and still make money, if your winners are bigger than your losers.A trader’s edge isn’t in how often they win, but in how little they lose.
 

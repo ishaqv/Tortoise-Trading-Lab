@@ -32,7 +32,7 @@ At 50% win rate and consistent 3R/5R, you’d already outperform 95% of traders.
 ## 4. Skipping the Stop-Loss
 
 You tell yourself, "I'll exit manually if it goes wrong."  
-You won't. Fear freezes execution — and a 1R loss quietly becomes a 5R disaster.  
+You won't. Fear(of being kicked out early) freezes execution — and a 1R loss quietly becomes a 5R disaster.  
 The stop isn't there to limit your profit. It's there to limit your *self-deception*.
 
 **Counter:** No SL in the system = no trade. Non-negotiable.

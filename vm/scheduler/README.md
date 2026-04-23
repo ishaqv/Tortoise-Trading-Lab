@@ -16,10 +16,17 @@ Scheduler.
 
 ## Deploying the Functions
 
-**Run the following commands inside the local terminal**
-Got to project directory and open terminal 
-cd vm/scheduler
+### 🛠️ Setup & Run Instructions
 
+1. Install the **Google Cloud SDK (`gcloud`)** if it’s not already installed.
+
+2. Open your terminal and navigate to the project directory:
+
+   ```bash
+   cd vm/scheduler
+   ```
+
+3. Run the required commands from the following.
 
 ### 1. Deploy the function to **start** the VM
 
@@ -49,29 +56,27 @@ gcloud functions deploy stop_vm \
 
 ## Scheduling the Functions
 
-### 🟢 Start VM at **9:13 AM IST** (03:43 UTC)
+### 🟢 Start VM at **9:00 AM IST**
 
 ```bash
 gcloud scheduler jobs create http start-vm-job \
-  --schedule="43 3 * * 1-5" \
+  --schedule="0 9 * * 1-5" \
   --time-zone="Asia/Kolkata" \
   --uri="<function_uri>" \
   --http-method=GET \
   --location=asia-south1
 ```
 
-### 🔴 Stop VM at **3:32 PM IST** (10:02 UTC)
+### 🔴 Stop VM at **4:00PM IST**
 
 ```bash
 gcloud scheduler jobs create http stop-vm-job \
-  --schedule="2 10 * * 1-5" \
+  --schedule="0 16 * * 1-5" \
   --time-zone="Asia/Kolkata" \
   --uri="<function_uri>" \
   --http-method=GET \
   --location=asia-south1
 ```
-
-> ⚠️ **Note**: The Scheduler cron uses **UTC timezone**, not the server timezone.
 
 ---
 

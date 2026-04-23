@@ -1,10 +1,10 @@
 # Quotes and Triggers — Emotional Reset
 
-> “Most traders don’t lose to the market. They lose to the mirror.”
+> “Most traders don’t lose to the market. They lose to the mirror(themself).”
 
 > “Patience is a position.”
 
-> “You don’t control outcomes. You control exposure.”
+> “You don’t control outcomes. You control exposure.(You decide enter a trade or not)”
 
 > “The goal is not to win every trade. It’s to be ready for the next one.”
 

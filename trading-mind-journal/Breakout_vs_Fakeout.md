@@ -49,4 +49,9 @@ Price stalls or instantly retests the breakout zone.
 
 Those setups are often fake continuations — engineered stop-hunts before reversal.
 
+**Disclaimer:**
+Trading does not follow fixed rules. Market conditions are constantly evolving, so strategies and rules should be
+adapted accordingly.
+
+
 

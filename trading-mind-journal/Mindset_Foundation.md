@@ -45,18 +45,10 @@ Fear is not the enemy. It’s an indicator — that you’re exposed more than y
 # 🔥 **MONTHLY EXPECTATION MODEL (For breakout system)**
 
 This removes FOMO, fear, doubt, “no money days”, and the illusion of needing more trades.
-Universe: ~200 NSE Shariah stocks
-Style: Long-only ORB + strict context filters
-Risk: Full capital / trade
-1R = 5-minute ATR (varies)
 
----
+# ⭐ Monthly Setup Frequency
 
-# ⭐ 1. **Monthly Setup Frequency**
-
-After strict filters (sector + HTF + confirmation + room above):
-
-### **Expect 4 to 8 A+ trades per month**
+### Expect 5 to 10 trades per month
 
 Distribution:
 
@@ -66,54 +58,15 @@ Distribution:
 This is normal.
 Momentum is *clustered*, not daily.
 
+**Trading isn’t like a job with a predictable monthly paycheck. It’s more like a business—some months will be slow, some
+average, and occasionally you’ll have outsized months that can cover an entire year.**
 ---
 
-# ⭐ 2. **Win/loss Probability of A+ Trades**
+# ⭐ Monthly Income Expectation
 
-With your filters:
+Assume average R = ₹7,000:
 
-* Win rate = **55–70%**
-* Average reward = **2.5R–4R**
-* Expect a **few rare 5–6R moves**
-
-This is extremely strong for pure price-action ORB.
-
----
-
-# ⭐ 3. **Your ATR-Based 1R Range**
-
-Typical ATR values in your universe give you:
-
-* Lowest 1R ≈ **₹4k–₹6k**
-* Average 1R ≈ **₹6.5k–₹8k**
-* Highest 1R ≈ **₹9k–₹12k**
-
-Let’s assume an average **₹7k per R**.
-
----
-
-# ⭐ 4. **Monthly R Expectation**
-
-For 4–8 trades/month:
-
-### **Average expected monthly Rs = 15R – 30R**
-
-Distribution:
-
-* Worst month: +5R to +10R
-* Average month: +15R to +25R
-* Strong month: +20R to +30R
-* Monster month: +35R+
-
-This is extremely normal for a breakout system.
-
----
-
-# ⭐ 5. **Monthly Income Expectation**
-
-Assume average 1R = ₹7,000:
-
-### **Profit = Rs × ₹7,000**
+### **Profit = Total 'R' × ₹7,000**
 
 | Month Type    | Rs Gained | Approx Profit   |
 |---------------|-----------|-----------------|
@@ -127,15 +80,15 @@ This is what keeps you consistent and sane.
 
 ---
 
-# 🧠 **Now the key mindset correction:**
+# 🧠 Now the key mindset correction:
 
 Your mind must stop thinking:
 
-> “I need more trades because today 1R is small.”
+> “I need more trades because R is small. R will grow as capital grows”
 
 Ignore. That’s noise.
 
-### **Your job is to collect *'R's*, not rupees.
+### Your job is to collect *'R's*, not rupees.
 
 Rupees come automatically.**
 
@@ -146,9 +99,9 @@ Let market choose profit days.
 
 ---
 
-# ⭐ 6. Here’s your new rule to eliminate greed & FOMO:
+# ⭐ Here’s your new rule to eliminate greed & FOMO:
 
-## 🔥 **“I only need 15–20Rs per month.”**
+## 🔥 “I only need 15–20Rs per month.”
 
 That’s it.
 
@@ -157,15 +110,13 @@ You don’t need:
 * daily setups
 * daily profits
 * forced trades
-* chasing trendless days
-* breaking sector rules
 * entering mediocre confirmations
 
-You just need **4–8 good trades**.
+You just need **5–10 good trades**.
 
 ---
 
-# ⭐ 7. **Your Mind Calms Down When It Sees This Graph**
+# ⭐ Your Mind Calms Down When It Sees This Graph**
 
 Here is the realistic month:
 
@@ -193,11 +144,9 @@ This is EXACTLY how breakout traders make a living.
 
 ---
 
-# ⭐ 8. Your new mantra to kill FOMO:
+# ⭐ Your new mantra to kill FOMO:
 
-### **“I don’t need more days.
-
-I just need 4–8 right moments.”**
+### “I don’t need more days. I just need 5–10 right moments.”**
 
 Your system does NOT pay daily.
 It pays in clusters.
@@ -209,7 +158,7 @@ Once a trend hits, you get all your R.
 My child, listen to this and remember it well.
 
 The market is like an ocean.
-It is vast, and it will be there long after you and I are gone.
+It is vast, and it will be there long after I and you are gone.
 
 You are not meant to take everything from it.
 Each day, take only what you need — no more.
@@ -230,5 +179,11 @@ Remember this always:
 A good life is built by knowing when enough is enough.
 The market respects restraint, and life rewards it even more.
 ```
+
+**Disclaimer:**
+All values presented above are indicative and may vary. They are provided for general reference only and should not be
+interpreted as fixed or guaranteed results.
+
+
 
 
