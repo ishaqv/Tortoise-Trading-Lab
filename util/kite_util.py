@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime, timedelta, date
 from typing import Optional
+from urllib.parse import urlparse, parse_qs
 
 import pandas as pd
 import pyotp
@@ -12,96 +13,169 @@ from kiteconnect.exceptions import NetworkException, DataException
 
 from util.db_util import write_historical_data
 from util.global_variables import API_SECRET, USER_ID, PASSWORD, TOTP_SECRET, KITE_API_REQUEST_RATE_PER_SECOND, \
-    BUFFER_SIZE, SWING_CANDLE_LIMIT
+    BUFFER_SIZE, SWING_CANDLE_LIMIT, KITE_LOGIN_REDIRECT_URL
 from util.global_variables import IST, API_KEY
+from util.telegram_bot import send_telegram_alert
 from util.trade_logger import log
 
 kite: Optional[KiteConnect] = None
 ACCESS_TOKEN_FILE = "access_token.json"
 _last_request_time: float = 0
-MAX_RETRIES = 3
+
+
+def check_callback_health() -> bool:
+    """
+    Checks if the Kite login callback endpoint is reachable and returns 'OK'.
+
+    Returns:
+        True  — endpoint is healthy
+        False — endpoint is down or unreachable
+    """
+    try:
+        resp = requests.get(
+            KITE_LOGIN_REDIRECT_URL,
+            timeout=5,
+            allow_redirects=False,  # Avoid false positives from redirect chains
+        )
+
+        if resp.status_code != 200 or resp.text.strip().upper() != "OK":
+            send_telegram_alert(
+                f"🚨 Callback DOWN | status={resp.status_code} | body={resp.text[:200]}"
+            )
+            return False
+
+        return True
+
+    except requests.exceptions.Timeout:
+        send_telegram_alert(
+            f"🚨 Callback TIMEOUT | url={KITE_LOGIN_REDIRECT_URL} | exceeded 5s"
+        )
+        return False
+
+    except requests.exceptions.ConnectionError as e:
+        send_telegram_alert(
+            f"🚨 Callback UNREACHABLE | url={KITE_LOGIN_REDIRECT_URL} | error={str(e)}"
+        )
+        return False
+
+    except requests.exceptions.RequestException as e:
+        send_telegram_alert(
+            f"🚨 Callback ERROR | url={KITE_LOGIN_REDIRECT_URL} | error={str(e)}"
+        )
+        return False
+
+
+def _get_totp_with_safety_margin(secret: str, margin_seconds: int = 5) -> str:
+    """
+    Generate TOTP, but wait for the next window if we're too close to expiry.
+    Avoids race condition where TOTP expires between generation and submission.
+    """
+    totp = pyotp.TOTP(secret)
+    now = time.time()
+    seconds_remaining = 30 - (now % 30)
+    if seconds_remaining < margin_seconds:
+        wait = seconds_remaining + 1  # wait into the next window
+        time.sleep(wait)
+    return totp.now()
 
 
 def get_access_token_from_kite() -> str:
-    session = requests.Session()
+    """
+    Automates Zerodha Kite login (password + TOTP) and returns a fresh access token.
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    Raises:
+        RuntimeError: On any step failure (health check, login, TOTP, token exchange).
+    """
+    if not check_callback_health():
+        raise RuntimeError("Callback health check failed — aborting login flow")
+
+    base_headers = {
+        "User-Agent": "Mozilla/5.0",
         "Content-Type": "application/x-www-form-urlencoded",
         "Referer": "https://kite.zerodha.com/",
         "X-Kite-Version": "3",
     }
 
-    # -------------------------
-    # STEP 1: Login
-    # -------------------------
-    resp = session.post(
-        "https://kite.zerodha.com/api/login",
-        data={
-            "user_id": USER_ID,
-            "password": PASSWORD,
-        },
-        headers=headers
-    )
-    resp.raise_for_status()
+    with requests.Session() as session:
+        session.headers.update(base_headers)
 
-    body = resp.json()
-    if body.get("status") != "success":
-        raise Exception(f"Login failed: {body}")
+        # ── STEP 1: Password login ──────────────────────────────────────────
+        try:
+            resp = session.post(
+                "https://kite.zerodha.com/api/login",
+                data={"user_id": USER_ID, "password": PASSWORD},
+                timeout=10,
+            )
+            resp.raise_for_status()  # catch 4xx/5xx before parsing JSON
+        except requests.RequestException as e:
+            send_telegram_alert(f"🚨 Login request failed | error={e}")
+            raise RuntimeError(f"Login request error: {e}") from e
 
-    request_id = body["data"]["request_id"]
+        body = resp.json()
+        if body.get("status") != "success":
+            send_telegram_alert(f"🚨 Login rejected | response={body}")
+            raise RuntimeError(f"Login failed: {body}")
 
-    # -------------------------
-    # STEP 2: TOTP
-    # -------------------------
-    # Sleep 1s to ensure TOTP window is fresh
-    time.sleep(1)
-    totp = pyotp.TOTP(TOTP_SECRET).now()
+        request_id: str = body["data"]["request_id"]
 
-    resp = session.post(
-        "https://kite.zerodha.com/api/twofa",
-        data={
-            "user_id": USER_ID,
-            "request_id": request_id,
-            "twofa_value": totp,
-            "twofa_type": "totp",
-        },
-        headers=headers
-    )
-    resp.raise_for_status()
+        # ── STEP 2: TOTP 2FA ───────────────────────────────────────────────
+        totp_value = _get_totp_with_safety_margin(TOTP_SECRET)
 
-    body = resp.json()
-    if body.get("status") != "success":
-        raise Exception(f"TOTP failed: {body}")
+        try:
+            resp = session.post(
+                "https://kite.zerodha.com/api/twofa",
+                data={
+                    "user_id": USER_ID,
+                    "request_id": request_id,
+                    "twofa_value": totp_value,
+                    "twofa_type": "totp",
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+        except requests.RequestException as e:
+            send_telegram_alert(f"🚨 TOTP request failed | error={e}")
+            raise RuntimeError(f"TOTP request error: {e}") from e
 
-    # -------------------------
-    # STEP 3: Get request_token
-    # -------------------------
-    resp = session.get(
-        f"https://kite.zerodha.com/connect/login?v=3&api_key={API_KEY}",
-        allow_redirects=True,
-        headers={
-            "User-Agent": headers["User-Agent"],
-            "Referer": "https://kite.zerodha.com/",
-        }
-    )
+        body = resp.json()
+        if body.get("status") != "success":
+            send_telegram_alert(f"🚨 TOTP rejected | response={body}")
+            raise RuntimeError(f"TOTP failed: {body}")
 
-    final_url = resp.url
-    if "request_token" not in final_url:
-        raise Exception(f"Login failed, final URL: {final_url}")
+        # ── STEP 3: Harvest request_token from redirect ────────────────────
+        try:
+            resp = session.get(
+                f"https://kite.zerodha.com/connect/login?v=3&api_key={API_KEY}",
+                allow_redirects=True,
+                headers={"User-Agent": base_headers["User-Agent"]},
+                # Override session content-type for this GET
+                timeout=10,
+            )
+            # Don't raise_for_status here — Kite may return non-200 on redirect landing
+        except requests.RequestException as e:
+            send_telegram_alert(f"🚨 request_token fetch failed | error={e}")
+            raise RuntimeError(f"request_token fetch error: {e}") from e
 
-    request_token = final_url.split("request_token=")[-1].split("&")[0]
+        final_url = resp.url
+        parsed = urlparse(final_url)
+        params = parse_qs(parsed.query)
 
-    # -------------------------
-    # STEP 4: Exchange for access_token
-    # -------------------------
-    global kite
-    kite = KiteConnect(api_key=API_KEY)
-    kite.timeout = 30
-    data = kite.generate_session(request_token, api_secret=API_SECRET)
-    access_token = data["access_token"]
+        if "request_token" not in params:
+            send_telegram_alert(f"🚨 request_token missing | final_url={final_url}")
+            raise RuntimeError(f"request_token not found in redirect URL: {final_url}")
 
-    return access_token
+        request_token: str = params["request_token"][0]
+
+        # ── STEP 4: Exchange request_token → access_token ──────────────────
+        try:
+            kite_connect = KiteConnect(api_key=API_KEY)
+            session_data = kite_connect.generate_session(request_token, api_secret=API_SECRET)
+        except Exception as e:
+            send_telegram_alert(f"🚨 generate_session failed | error={e}")
+            raise RuntimeError(f"Session generation error: {e}") from e
+
+        access_token: str = session_data["access_token"]
+        return access_token
 
 
 def get_totp_token(secret):
@@ -142,7 +216,8 @@ def cache_kite_access_token() -> None:
     Process B will pick it up via load_access_token() on startup.
     """
     access_token = get_access_token_from_kite()
-    save_access_token(access_token)
+    if access_token:
+        save_access_token(access_token)
 
 
 def get_kite_object() -> KiteConnect:
@@ -171,11 +246,12 @@ def get_kite_object() -> KiteConnect:
     # Fresh login
     log("info", "Starting fresh login...")
     access_token = get_access_token_from_kite()
-    save_access_token(access_token)
-    kite = KiteConnect(api_key=API_KEY)
-    kite.set_access_token(access_token)
-    kite.timeout = 30
-    log("info", "New session created and saved.")
+    if access_token:
+        save_access_token(access_token)
+        kite = KiteConnect(api_key=API_KEY)
+        kite.set_access_token(access_token)
+        kite.timeout = 30
+        log("info", "New session created and saved.")
 
     return kite
 

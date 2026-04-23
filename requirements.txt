@@ -1,6 +1,6 @@
 pandas~=3.0.2
 ta==0.11.0
-mysql-connector-python~=9.7.0
+mysql-connector-python~=9.6.0
 requests~=2.33.1
 python-dotenv~=1.2.1
 pyotp~=2.9.0
