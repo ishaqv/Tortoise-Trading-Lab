@@ -87,9 +87,11 @@ See [`crontab`](crontab) for the full cron schedule.
 
 Volume ≥ 15x average volume(SMA 20 volume)
 
-**Disclaimer:**
+---
+
+**Disclaimer:
 No setup works forever. Markets evolve, and setups evolve with them. If you fail to adapt, your edge will gradually
-disappear.
+disappear.**
 
 
 ---

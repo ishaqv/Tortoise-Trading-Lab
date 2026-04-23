@@ -175,6 +175,8 @@ pip install -r requirements.txt
 
 🔁 Cron uses system time. Setting system time to IST makes all jobs run in IST.
 
+From the SSH terminal run the following command
+
 ```bash
 crontab -e
 ```
