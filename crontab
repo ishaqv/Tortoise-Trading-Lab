@@ -9,5 +9,3 @@
 
 #Runs daily candle backfill at 3.50PM (it is required to find top gainers for the day)
 50 15 * * 1-5 flock /tmp/daily_backfill.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/swing_day_backfill.py'
-
-@reboot /bin/bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/flask_starter.py'

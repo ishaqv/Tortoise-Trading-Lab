@@ -56,7 +56,8 @@ ACCEPTANCE_CANDLE_IDX = -1
 MIN_LIQUIDITY_RATIO = int(os.getenv('MIN_LIQUIDITY_RATIO', "3"))
 MAX_WORKERS = int(os.getenv('MAX_WORKERS', "2"))
 KITE_API_REQUEST_RATE_PER_SECOND = int(os.getenv('KITE_API_REQUEST_RATE_PER_SECOND', "3"))
-KITE_LOGIN_REDIRECT_URL = os.getenv('KITE_LOGIN_REDIRECT_URL', "http://localhost:8080/login/callback")
+KITE_LOGIN_REDIRECT_URL = os.getenv('KITE_LOGIN_REDIRECT_URL',
+                                    "https://kite-login-callback-ob2yqdze4a-el.a.run.app/login/callback")
 BUFFER_SIZE = int(os.getenv('BUFFER_SIZE', "750"))
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
