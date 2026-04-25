@@ -1,166 +1,21 @@
-import json
-import os
 import time
 from datetime import datetime, timedelta, date
 from typing import Optional
 
 import pandas as pd
-import pyotp
-import requests
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import NetworkException, DataException
 
 from util.db_util import write_historical_data
-from util.global_variables import API_SECRET, USER_ID, PASSWORD, TOTP_SECRET, KITE_API_REQUEST_RATE_PER_SECOND, \
-    BUFFER_SIZE, SWING_CANDLE_LIMIT, KITE_LOGIN_REDIRECT_URL
-from util.global_variables import IST, API_KEY
+from util.global_variables import IST
+from util.global_variables import KITE_API_REQUEST_RATE_PER_SECOND, \
+    DB_INSERT_BUFFER_SIZE, SWING_CANDLE_LIMIT
+from util.secret_manager_util import get_kite_access_token, get_kite_api_key
 from util.telegram_bot import send_telegram_alert
 from util.trade_logger import log
 
 kite: Optional[KiteConnect] = None
-ACCESS_TOKEN_FILE = "access_token.json"
 _last_request_time: float = 0
-
-
-def check_callback_health() -> bool:
-    """
-    Checks if the Kite login callback endpoint is reachable and returns 'OK'.
-
-    Returns:
-        True  — endpoint is healthy
-        False — endpoint is down or unreachable
-    """
-    try:
-        resp = requests.get(
-            KITE_LOGIN_REDIRECT_URL,
-            timeout=5,
-            allow_redirects=False,  # Avoid false positives from redirect chains
-        )
-
-        if resp.status_code != 200 or resp.text.strip().upper() != "OK":
-            send_telegram_alert(
-                f"🚨 Callback DOWN | status={resp.status_code} | body={resp.text[:200]}"
-            )
-            return False
-
-        return True
-
-    except requests.exceptions.Timeout:
-        send_telegram_alert(
-            f"🚨 Callback TIMEOUT | url={KITE_LOGIN_REDIRECT_URL} | exceeded 5s"
-        )
-        return False
-
-    except requests.exceptions.ConnectionError as e:
-        send_telegram_alert(
-            f"🚨 Callback UNREACHABLE | url={KITE_LOGIN_REDIRECT_URL} | error={str(e)}"
-        )
-        return False
-
-    except requests.exceptions.RequestException as e:
-        send_telegram_alert(
-            f"🚨 Callback ERROR | url={KITE_LOGIN_REDIRECT_URL} | error={str(e)}"
-        )
-        return False
-
-
-def get_access_token_from_kite() -> str:
-    """
-    Automates Zerodha Kite login (password + TOTP) and returns a fresh access token.
-
-    Raises:
-        RuntimeError: On any step failure (health check, login, TOTP, token exchange).
-    """
-    if not check_callback_health():
-        raise RuntimeError("Callback health check failed — aborting login flow")
-
-    session = requests.Session()
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Referer": "https://kite.zerodha.com/",
-        "X-Kite-Version": "3",
-    }
-
-    # -------------------------
-    # STEP 1: Login
-    # -------------------------
-    resp = session.post(
-        "https://kite.zerodha.com/api/login",
-        data={
-            "user_id": USER_ID,
-            "password": PASSWORD,
-        },
-        headers=headers
-    )
-    resp.raise_for_status()
-
-    body = resp.json()
-    if body.get("status") != "success":
-        raise Exception(f"Login failed: {body}")
-
-    request_id = body["data"]["request_id"]
-
-    # -------------------------
-    # STEP 2: TOTP
-    # -------------------------
-    # Sleep 1s to ensure TOTP window is fresh
-    time.sleep(1)
-    totp = pyotp.TOTP(TOTP_SECRET).now()
-
-    resp = session.post(
-        "https://kite.zerodha.com/api/twofa",
-        data={
-            "user_id": USER_ID,
-            "request_id": request_id,
-            "twofa_value": totp,
-            "twofa_type": "totp",
-        },
-        headers=headers
-    )
-    resp.raise_for_status()
-
-    body = resp.json()
-    if body.get("status") != "success":
-        raise Exception(f"TOTP failed: {body}")
-
-    # -------------------------
-    # STEP 3: Get request_token
-    # -------------------------
-    resp = session.get(
-        f"https://kite.zerodha.com/connect/login?v=3&api_key={API_KEY}",
-        allow_redirects=True,
-        headers={
-            "User-Agent": headers["User-Agent"],
-            "Referer": "https://kite.zerodha.com/",
-        }
-    )
-
-    final_url = resp.url
-    if "request_token" not in final_url:
-        raise Exception(f"Login failed, final URL: {final_url}")
-
-    request_token = final_url.split("request_token=")[-1].split("&")[0]
-
-    # -------------------------
-    # STEP 4: Exchange for access_token
-    # -------------------------
-    global kite
-    kite_connect = KiteConnect(api_key=API_KEY)
-    kite_connect.timeout = 30
-    data = kite_connect.generate_session(request_token, api_secret=API_SECRET)
-    access_token = data["access_token"]
-
-    return access_token
-
-
-def get_totp_token(secret):
-    """
-    Generates a time-based one-time password (TOTP) using the provided secret key.
-    """
-    totp = pyotp.TOTP(secret)
-    return totp.now()
 
 
 def get_market_open() -> datetime:
@@ -174,63 +29,68 @@ def get_market_close() -> datetime:
     return datetime.now(IST).replace(hour=15, minute=30, second=0, microsecond=0)
 
 
-def save_access_token(token: str):
-    with open(ACCESS_TOKEN_FILE, "w") as f:
-        json.dump({"access_token": token}, f)
-
-
-def load_cached_access_token() -> str | None:
-    if not os.path.exists(ACCESS_TOKEN_FILE):
-        return None
-    with open(ACCESS_TOKEN_FILE, "r") as f:
-        data = json.load(f)
-        return data.get("access_token")
-
-
-def cache_kite_access_token() -> None:
-    """
-    Called by Process A to log in and persist the token to disk.
-    Process B will pick it up via load_access_token() on startup.
-    """
-    access_token = get_access_token_from_kite()
-    if access_token:
-        save_access_token(access_token)
-
-
-def get_kite_object() -> KiteConnect:
+def get_kite_object(max_wait=180, retry_interval=5) -> KiteConnect:
     """
     Returns a valid KiteConnect instance.
-    Tries cached token first, falls back to fresh login.
+
+    - Uses cached instance if available
+    - Waits for fresh token if expired
+    - Retries until max_wait
     """
+
     global kite
+
+    # Fast path
     if kite:
         return kite
 
-    # Try cached token
-    access_token = load_cached_access_token()
-    if access_token:
-        kite = KiteConnect(api_key=API_KEY)
-        kite.set_access_token(access_token)
-        kite.timeout = 30
+    alert_sent = False
+    start_time = time.time()
+
+    api_key = get_kite_api_key()
+    login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
+
+    while time.time() - start_time < max_wait:
+
+        access_token = get_kite_access_token()
+
+        # ✅ Handle missing token
+        if not access_token:
+            log("warning", "No access token available yet. Waiting...")
+            time.sleep(retry_interval)
+            continue
+
+        kite_obj = KiteConnect(api_key=api_key)
+        kite_obj.set_access_token(access_token)
+        kite_obj.timeout = 30
+
         try:
-            kite.profile()
-            log("info", "Restored session from cached token.")
+            kite_obj.profile()  # validation
+            log("info", "Kite session established successfully.")
+            kite = kite_obj
             return kite
+
         except Exception as e:
-            log("info", f"Cached token expired ({e}), logging in fresh...")
-            kite = None
+            log("warning", f"Token invalid/expired: {e}")
 
-    # Fresh login
-    log("info", "Starting fresh login...")
-    access_token = get_access_token_from_kite()
-    if access_token:
-        save_access_token(access_token)
-        kite = KiteConnect(api_key=API_KEY)
-        kite.set_access_token(access_token)
-        kite.timeout = 30
-        log("info", "New session created and saved.")
+            # ✅ Send alert only once
+            if not alert_sent:
+                message = (
+                    "🚨 <b>Kite Token Expired</b>\n"
+                    "\n"
+                    "Your trading session has ended and requires manual re-authentication.\n"
+                    "\n"
+                    f"🔗 <a href='{login_url}'>Login to Zerodha KiteConnect API</a>\n"
+                )
 
-    return kite
+                send_telegram_alert(message)
+                send_telegram_alert(message)
+                alert_sent = True
+
+            time.sleep(retry_interval)
+
+    # Hard fail
+    raise RuntimeError("Unable to establish Kite session within time limit")
 
 
 def get_to_date(from_date: datetime, intraday_candle_size: int) -> datetime | None:
@@ -502,7 +362,7 @@ def persist_historical_data(
 
         buffer.extend(records)
 
-        if len(buffer) >= BUFFER_SIZE:
+        if len(buffer) >= DB_INSERT_BUFFER_SIZE:
             write_historical_data(table_name, buffer)
             buffer.clear()
 

@@ -65,6 +65,32 @@ gcloud projects add-iam-policy-binding <PROJECT_ID> \
 > gcloud projects describe <PROJECT_ID>
 > ```
 
+🔐 Using Google Cloud Secret Manager Locally
+
+If you’re running the application locally and need access to Google Cloud Secret Manager, you must configure local
+authentication.
+
+Step 1: Authenticate with GCP
+
+Run the following command in your terminal:
+
+``gcloud auth application-default login``
+
+This sets up Application Default Credentials (ADC) on your machine.
+
+🧠 What this does
+
+- Grants your local environment permission to access GCP services
+- Allows your code to use Secret Manager without manual credential handling
+
+⚠️ Notes
+
+- This step is only needed for local development
+
+**Make sure the service account only have necessary roles(Eg:Secret Manager Secret Accessor and Secret Manager Secret
+Accessor
+Secret Manager Secret Version Adder)**
+
 ---
 
 ## How the Login Flow Works

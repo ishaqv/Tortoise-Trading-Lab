@@ -1,4 +1,3 @@
-import os
 import threading
 from datetime import timedelta, datetime, date
 
@@ -6,6 +5,7 @@ import mysql.connector
 import pandas as pd
 
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT
+from util.secret_manager_util import get_db_config
 from util.trade_logger import log
 
 lock = threading.Lock()
@@ -14,23 +14,32 @@ pool = None
 
 
 def get_db_connection():
-    """
-        Retrieves a database connection from the connection pool.
-    """
     global pool
 
     if not pool:
-        # Create a connection pool
         pool = mysql.connector.pooling.MySQLConnectionPool(
             pool_name="stock_db_pool",
-            pool_size=10,  # Adjust based on the load
-            host=os.getenv('DB_HOST'),
-            port=int(os.getenv('DB_PORT', 3306)),
-            user=os.getenv('DB_USER'),
-            password=os.getenv('DB_PASSWORD'),
-            database=os.getenv('DB_NAME'))
+            pool_size=10,
+            host=get_db_config()["db_host"],
+            port=get_db_config()["db_port"],  # use 3307 for local testing
+            user=get_db_config()["db_user"],
+            password=get_db_config()["db_password"],
+            database=get_db_config()["db_name"],
+            connection_timeout=5,
+            autocommit=True
+        )
 
-    return pool.get_connection()
+    conn = pool.get_connection()
+    try:
+        conn.ping(reconnect=True, attempts=2, delay=1)
+    except Exception as e:
+        log("warning", "DB ping failed, retrying pool checkout: %s", e)
+        try:
+            conn.close()
+        except Exception:
+            pass  # already dead, ignore
+        conn = pool.get_connection()  # let this raise if pool is exhausted
+    return conn
 
 
 def initialize_db(table_name):

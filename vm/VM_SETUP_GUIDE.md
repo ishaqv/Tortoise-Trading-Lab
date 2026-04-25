@@ -208,16 +208,23 @@ gcloud init
 
 ---
 
-#### Step 2: Create an SSH Tunnel to MySQL
+✅ Step 2: Create a Persistent SSH Tunnel to MySQL
 
-```bash
-gcloud compute ssh INSTANCE_NAME --zone=ZONE_NAME -- -L 3307:localhost:3306
+Instead of a basic tunnel, use a keepalive-enabled tunnel:
+
 ```
-
+gcloud compute ssh INSTANCE_NAME --zone=ZONE_NAME -- -N -L 3307:localhost:3306 -o ServerAliveInterval=30 -o ServerAliveCountMax=3
+```
 Replace:
 
-- `INSTANCE_NAME` → Your VM instance name.
-- `ZONE_NAME` → The zone where your VM is deployed.
+- `INSTANCE_NAME` → Your VM instance name
+- `ZONE_NAME` → The zone where your VM is deployed
+
+---
+
+- `-N` → Runs tunnel without opening a shell (clean + stable)
+- `ServerAliveInterval=30` → Sends keepalive ping every 30s
+- `ServerAliveCountMax=3` → Retries before dropping
 
 This command forwards your **local port 3307** to the VM’s **MySQL port 3306**.
 

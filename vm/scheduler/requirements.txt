@@ -1,2 +1,1 @@
 google-api-python-client~=2.194.0
-functions-framework==3.8.2

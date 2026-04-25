@@ -13,7 +13,43 @@ The scanner runs as a three-phase daily pipeline, each phase triggered by a sepa
 
 ---
 
-### Phase 1 — Warmup
+Here’s a cleaner, README-ready version:
+
+---
+
+## ⚙️ Phase 1 — Pre-Warmup
+
+**Schedule:** `9:00 AM` · Runs once daily
+
+```
+https://kite.zerodha.com/connect/login?v=3&api_key=YOUR_API_KEY
+```
+
+This step authenticates with **Zerodha Kite Connect** and initializes the session for the trading day.
+
+---
+
+### 🔑 What this does
+
+* Opens the login flow for Kite Connect API
+* Generates a fresh **access token** (valid for the day)
+* Caches the token for use in subsequent API calls
+
+---
+
+### ⚠️ Important Notes
+
+* This step is **manual and cannot be automated**
+* Must be completed **before market operations begin**
+* Token expires daily and needs to be refreshed daily
+
+---
+
+
+
+---
+
+### Phase 2 — Warmup
 
 **Schedule:** `9:15 AM` · Runs once daily
 
@@ -24,7 +60,7 @@ Authenticates with the broker and caches session credentials for the day.
 
 ---
 
-### Phase 2 — Scan
+### Phase 3 — Scan
 
 **Schedule:** `9:20 AM` · Runs once daily
 
@@ -37,7 +73,7 @@ Discovers and alerts potential trade setups.
 
 ---
 
-### Phase 3 — Backfill
+### Phase 4 — Backfill
 
 **Schedule:** `3:35 PM` and `3:45 PM` · Runs twice daily
 

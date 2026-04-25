@@ -15,20 +15,25 @@ shariah_compliant_stock_dict = None
 
 def is_file_stale(file_path: Path, hours: int) -> bool:
     """
-    Checks whether a file is stale based on its last modified time.
-
-    A file is considered stale if:
-    - It does not exist, or
-    - It was last modified more than 'days' ago.
+    File is stale if:
+    - does not exist
+    - is empty
+    - is older than threshold
     """
 
     try:
-        return not file_path.exists() or (
-                    datetime.now(IST) - datetime.fromtimestamp(file_path.stat().st_mtime, IST)) > timedelta(
-            hours=hours)
+        if not file_path.exists():
+            return True
+
+        if file_path.stat().st_size == 0:
+            return True
+
+        file_mtime = datetime.fromtimestamp(file_path.stat().st_mtime, IST)
+        return (datetime.now(IST) - file_mtime) > timedelta(hours=hours)
+
     except Exception as e:
         log("exception", f"Error checking file age: {e}")
-        return True  # Fallback: treat as stale if error occurs
+        return True
 
 
 def load_cached_data(file_path: Path):

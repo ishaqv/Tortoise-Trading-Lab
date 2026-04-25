@@ -30,6 +30,7 @@ def run_scan() -> None:
 
         # fetch and store candle ohlcv
         symbol_df_map = get_historical_data_for_symbols(table_name, symbols)
+
         symbol_df_map, new_records = append_latest_candle_data_from_kite(f"{INTRADAY_M5_CANDLE_SIZE}minute",
                                                                          shariah_compliant_stock_dict,
                                                                          INTRADAY_M5_CANDLE_SIZE, symbol_df_map)

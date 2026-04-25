@@ -1,6 +1,6 @@
 import requests
 
-from util.global_variables import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from util.secret_manager_util import get_telegram_config
 from util.trade_logger import log
 
 
@@ -10,11 +10,12 @@ def send_telegram_alert(message):
     """
     formatted_message = f"-------------------------------------\n{message}"
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        url = f"https://api.telegram.org/bot{get_telegram_config()['token']}/sendMessage"
         payload = {
-            "chat_id": TELEGRAM_CHAT_ID,
+            "chat_id": get_telegram_config()['chat_id'],
             "text": formatted_message,
-            "parse_mode": "HTML"
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True
         }
 
         response = requests.post(url, data=payload)

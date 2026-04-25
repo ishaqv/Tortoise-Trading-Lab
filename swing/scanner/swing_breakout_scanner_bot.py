@@ -8,7 +8,6 @@ from swing.scanner.compressed_range_breakout_scanner import is_compressed_range_
 from swing.scanner.volume_explosion_breakout_scanner import is_volume_explosion_breakout_detected
 from util.db_util import fetch_data
 from util.global_variables import *
-from util.kite_util import place_buy_with_sl
 from util.setup_type import SwingSetupType
 from util.telegram_bot import send_telegram_alert
 from util.trade_logger import log
@@ -100,9 +99,7 @@ def analyze_stock_for_setup(symbol,
             send_telegram_alert(message)
             log("info", message)
 
-            if SWING_IS_AUTOMATIC_ENTRY_ENABLED:
-                place_buy_with_sl(symbol, position["qty"], position['entry'], position['sl'],
-                                  df.iloc[BREAKOUT_CANDLE_IDX]['atr'])
+
 
     except Exception as e:
         log("exception", f"Error processing stock {symbol}: {e}")

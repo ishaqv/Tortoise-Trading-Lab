@@ -1,8 +1,6 @@
 import os
 
-import functions_framework
 import googleapiclient.discovery
-from flask import Request, make_response
 
 
 def manage_vm(request):
@@ -40,16 +38,3 @@ def manage_vm(request):
         return "Invalid action"
 
 
-@functions_framework.http
-def login_callback(request: Request):
-    """
-    GCP Cloud Function (HTTP trigger) equivalent of:
-        GET /login/callback -> "OK"
-
-    NOTE: Do NOT call app.run() or bind to a port here.
-    The Functions Framework reads the PORT env var automatically.
-    """
-    if request.path.rstrip("/") == "/login/callback" and request.method == "GET":
-        return make_response("OK", 200)
-
-    return make_response("Not Found", 404)
