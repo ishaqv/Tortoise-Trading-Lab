@@ -32,6 +32,40 @@ Before deploying, make sure you have:
 cd auth/kite
 ```
 
+### 3. Grant Service Account Permissions(IAM roles)
+
+The default service account needs permission to build artifacts. Run:
+
+```
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
+ --role=roles/cloudbuild.builds.builder 
+```
+
+The default service account needs permission to read secrets. Run:
+
+```bash
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+```
+
+> Replace `<PROJECT_ID>` with your actual GCP project ID. You can find it by running:
+> ```bash
+> gcloud config get-value project
+> ```
+
+> To get your project number, run:
+> ```bash
+> gcloud projects describe <PROJECT_ID>
+> ```
+
+This can be done from GCP console as well
+
+![IAM.png](IAM.png)
+
+---
+
 ### 2. Deploy the Cloud Function
 
 ```bash
@@ -44,54 +78,6 @@ gcloud functions deploy kite_login_callback \
   --set-secrets KITE_API_SECRET=projects/<PROJECT_ID>/secrets/KITE_API_SECRET:latest \
   --set-secrets KITE_API_KEY=projects/<PROJECT_ID>/secrets/KITE_API_KEY:latest
 ```
-
-> Replace `<PROJECT_ID>` with your actual GCP project ID. You can find it by running:
-> ```bash
-> gcloud config get-value project
-> ```
-
-### 3. Grant Secret Manager Access
-
-The Cloud Function's service account needs permission to read secrets. Run:
-
-```bash
-gcloud projects add-iam-policy-binding <PROJECT_ID> \
-  --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
-  --role="roles/secretmanager.secretAccessor"
-```
-
-> To get your project number, run:
-> ```bash
-> gcloud projects describe <PROJECT_ID>
-> ```
-
-🔐 Using Google Cloud Secret Manager Locally
-
-If you’re running the application locally and need access to Google Cloud Secret Manager, you must configure local
-authentication.
-
-Step 1: Authenticate with GCP
-
-Run the following command in your terminal:
-
-``gcloud auth application-default login``
-
-This sets up Application Default Credentials (ADC) on your machine.
-
-🧠 What this does
-
-- Grants your local environment permission to access GCP services
-- Allows your code to use Secret Manager without manual credential handling
-
-⚠️ Notes
-
-- This step is only needed for local development
-
-**Make sure the service account only have necessary roles(Eg:Secret Manager Secret Accessor and Secret Manager Secret
-Accessor
-Secret Manager Secret Version Adder)**
-
----
 
 ## How the Login Flow Works
 

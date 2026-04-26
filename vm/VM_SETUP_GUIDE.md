@@ -164,12 +164,131 @@ crontab -l
 
 ---
 
+Here’s a clean README section you can drop straight into your project. No fluff, just what actually matters.
+
+---
+
+## 🔐 Accessing GCP Secret Manager from a VM
+
+To successfully access secrets from **Google Cloud Secret Manager** on a Compute Engine VM, **two configurations must be
+correct**. Missing either one will result in a `403 PERMISSION_DENIED` error.
+
+---
+
+### ✅ 1. IAM Role (Authorization)
+
+The VM’s service account must have the following role:
+
+* `roles/secretmanager.secretAccessor`
+
+This allows the service account to **read secrets**.
+
+You can assign it by the following command / using GCP console:
+
+```bash
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+  --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+```
+
+![IAM.png](IAM.png)
+
+
+---
+
+### ⚠️ 2. OAuth Scopes (Access Token Permissions)
+
+Even with correct IAM roles, access will fail if the VM does not have proper OAuth scopes.
+
+The VM **must include**:
+
+```
+https://www.googleapis.com/auth/cloud-platform
+```
+
+This scope allows the VM to request access tokens that can call GCP APIs, including Secret Manager.
+
+---
+
+### 🔍 How to Verify Scopes
+
+Run this inside your VM:
+
+```bash
+curl "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/scopes" \
+  -H "Metadata-Flavor: Google"
+```
+
+If you don’t see `cloud-platform`, Secret Manager access will fail.
+
+---
+
+### 🛠️ How to Fix Missing Scopes
+
+#### Option A — Using gcloud
+
+```bash
+gcloud compute instances stop YOUR_VM_NAME
+
+gcloud compute instances set-service-account YOUR_VM_NAME \
+  --scopes=https://www.googleapis.com/auth/cloud-platform \
+  --zone=YOUR_ZONE
+
+gcloud compute instances start YOUR_VM_NAME
+```
+
+---
+
+#### Option B — Using GCP Console
+
+1. Go to Compute Engine → VM Instances
+2. Click your VM → **Edit**
+3. Under **Access scopes**, select:
+   **“Allow full access to all Cloud APIs”**
+4. Save and restart the VM
+
+---
+
+### 🚨 Common Pitfall
+
+> Assigning IAM roles alone is **not enough**.
+
+Both must be configured:
+
+| Requirement | Purpose                           |
+|-------------|-----------------------------------|
+| IAM Role    | What the service account *can do* |
+| OAuth Scope | What the VM *is allowed to call*  |
+
+---
+🔐 Using Google Cloud Secret Manager Locally
+
+If you’re running the application locally and need access to Google Cloud Secret Manager, you must configure local
+authentication.
+
+Step 1: Authenticate with GCP
+
+Run the following command in your terminal:
+
+``gcloud auth application-default login``
+
+This sets up Application Default Credentials (ADC) on your machine.
+
+🧠 What this does
+
+- Grants your local environment permission to access GCP services
+- Allows your code to use Secret Manager without manual credential handling
+
+⚠️ Notes
+
+- This step is only needed for local development
+
+**Make sure the service account only have necessary roles()**
+
+---
+
 ## ▶️ 13. Run App Manually
 
-```sudo nano .env```
-Then add your environment variables
-Save(Ctrl+O)
-Exit(Ctrl+X)
 
 ```bash
 cd Algo-Trading-Lab

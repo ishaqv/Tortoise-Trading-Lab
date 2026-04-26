@@ -24,7 +24,7 @@ def get_db_connection():
                     pool_name="stock_db_pool",
                     pool_size=10,
                     host=config["db_host"],
-                    port=get_db_config()["db_port"],
+                    port=config["db_port"],
                     user=config["db_user"],
                     password=config["db_password"],
                     database=config["db_name"],
