@@ -9,7 +9,7 @@ kite_access_token = None
 db_config = None
 telegram_config = None
 kite_api_key = None
-
+client = secretmanager.SecretManagerServiceClient()
 
 def get_secret(secret_id: str, project_id: str, version: str = "latest") -> str:
     """
@@ -25,7 +25,6 @@ def get_secret(secret_id: str, project_id: str, version: str = "latest") -> str:
     """
 
     try:
-        client = secretmanager.SecretManagerServiceClient()
 
         name = f"projects/{project_id}/secrets/{secret_id}/versions/{version}"
 
@@ -44,12 +43,9 @@ def get_secret(secret_id: str, project_id: str, version: str = "latest") -> str:
 
 
 def get_kite_access_token():
-    global kite_access_token
+    # The Kite access token is not static and must be refreshed each time.
+    return get_secret("KITE_ACCESS_TOKEN", GCP_PROJECT_ID)
 
-    if not kite_access_token:
-        kite_access_token = get_secret("KITE_ACCESS_TOKEN", GCP_PROJECT_ID)
-
-    return kite_access_token
 
 
 def get_kite_api_key():
