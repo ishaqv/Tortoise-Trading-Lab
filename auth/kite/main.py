@@ -13,10 +13,9 @@ KITE_API_SECRET = os.environ["KITE_API_SECRET"]
 PROJECT_ID = "trading-vps-463502"
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+client = secretmanager.SecretManagerServiceClient()
 
 def store_token(token):
-    client = secretmanager.SecretManagerServiceClient()
-
     client.add_secret_version(
         request={
             "parent": f"projects/{PROJECT_ID}/secrets/KITE_ACCESS_TOKEN",

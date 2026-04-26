@@ -1,5 +1,5 @@
 # Warm-up run to fetch and cache the Kite access token and symbol instrument_token
-15 9 * * 1-5 flock /tmp/m5_warmup.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_warmup.py'
+5 9 * * 1-5 flock /tmp/m5_warmup.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_warmup.py'
 
 # Runs EVB scanner
 20 9 * * 1-5 flock /tmp/m5_scan.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_scan.py'

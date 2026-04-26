@@ -20,12 +20,26 @@ def get_kite() -> KiteConnect:
     return kite
 
 
-def init_kite_session(max_wait=180, retry_interval=5):
+def init_kite_session(max_wait=600, retry_interval=30):
     """
-    Initialize a valid kite session.
-    - Uses cached token if available
-    - Waits for fresh token if expired
-    - Retries until max_wait
+    Initialize a valid Kite session.
+
+    Attempts to establish a KiteConnect session using the cached access token.
+    If the token is expired or invalid, sends a Telegram alert with a login URL
+    and waits 120 seconds for the trader to manually re-authenticate via Zerodha.
+    After that, retries every `retry_interval` seconds until the session is
+    established or `max_wait` is exceeded.
+
+    Args:
+        max_wait (int): Maximum time in seconds to wait for a valid session. Default is 600.
+        retry_interval (int): Seconds between retry attempts after the initial 120s wait. Default is 30.
+
+    Raises:
+        RuntimeError: If a valid session cannot be established within `max_wait` seconds.
+
+    Note:
+        Assumes the trader is present at the desk when this is called — the Telegram
+        alert is expected to be acted on promptly.
     """
 
     global kite
@@ -36,28 +50,9 @@ def init_kite_session(max_wait=180, retry_interval=5):
     api_key = get_kite_api_key()
     login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
 
-    last_token = None
-    token_attempts = {}
-
     while time.time() - start_time < max_wait:
 
         access_token = get_kite_access_token()
-
-        if not access_token:
-            log("warning", "No access token available yet. Waiting...")
-            time.sleep(retry_interval)
-            continue
-
-        attempts = token_attempts.get(access_token, 0)
-
-        if access_token == last_token and attempts >= 3:
-            log("info", "Same token failed multiple times, waiting for update...")
-            time.sleep(retry_interval)
-            continue
-
-        token_attempts[access_token] = attempts + 1
-        last_token = access_token
-
         kite_obj = KiteConnect(api_key=api_key)
         kite_obj.set_access_token(access_token)
 
@@ -82,7 +77,7 @@ def init_kite_session(max_wait=180, retry_interval=5):
 
                 send_telegram_alert(message)
                 alert_sent = True
-                time.sleep(30)
+                time.sleep(120)  # 2 min waiting time for manual login
                 continue
 
             time.sleep(retry_interval)
