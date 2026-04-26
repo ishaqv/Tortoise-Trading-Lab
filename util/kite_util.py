@@ -81,7 +81,6 @@ def init_kite_session(max_wait=180, retry_interval=5):
                 )
 
                 send_telegram_alert(message)
-                send_telegram_alert(message)
                 alert_sent = True
                 time.sleep(30)
                 continue
