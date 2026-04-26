@@ -1,16 +1,10 @@
+import csv
 from datetime import datetime, timedelta
 from pathlib import Path
-from time import sleep
 
-import pandas as pd
-
-from util.global_variables import IST
-from util.kite_util import get_kite_object
-from util.shariah_stock_scrapper import get_cached_shariah_symbols
+from util.global_variables import IST, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, LIQUID_SHARIAH_SYMBOL_FILE_PATH
+from util.kite_util import get_nse_instruments
 from util.trade_logger import log
-
-shariah_compliant_stocks = None
-shariah_compliant_stock_dict = None
 
 
 def is_file_stale(file_path: Path, hours: int) -> bool:
@@ -36,99 +30,124 @@ def is_file_stale(file_path: Path, hours: int) -> bool:
         return True
 
 
-def load_cached_data(file_path: Path):
+def get_symbols():
     """
-     Loads cached symbol-to-instrument_token mapping from a CSV file.
+    Loads and returns a set of Shariah-compliant symbols from a CSV file.
     """
+    try:
+        symbols = set()
+
+        with open(LIQUID_SHARIAH_SYMBOL_FILE_PATH, mode="r") as file:
+            reader = csv.DictReader(file)
+
+            # Validate header early (fail fast)
+            if "symbol" not in reader.fieldnames:
+                raise ValueError("CSV must contain 'symbol' column")
+
+            for row in reader:
+                symbol = row.get("symbol")
+
+                if symbol:
+                    symbol = symbol.strip()
+                    if symbol:
+                        symbols.add(symbol)
+
+        return symbols
+
+    except Exception as e:
+        log("error", f"❌ Failed to read symbols: {e}", exc_info=True)
+        raise
+
+
+def load_symbol_token_map():
+    """
+    Load symbol -> instrument_token map from CSV
+    """
+    symbol_token_map = {}
+
+    if is_file_stale(LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, 12):
+        return None
 
     try:
-        if is_file_stale(file_path, 12):
-            return None
+        with open(LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, mode="r") as file:
+            reader = csv.DictReader(file)
 
-        df = pd.read_csv(file_path)
-        df.columns = df.columns.str.strip()
-        df['symbol'] = df['symbol'].astype(str).str.strip()
-        return df.set_index('symbol')['instrument_token'].to_dict()
+            for row in reader:
+                symbol = row["symbol"]
+                token = row["instrument_token"]
+                symbol_token_map[symbol] = token
+
+        return symbol_token_map
+
+    except FileNotFoundError:
+        return None
+
     except Exception as e:
-        log("exception", f"❌ Failed to read cached Shariah stock data: {e}")
+        log("error", f"Failed to load CSV: {e}", exc_info=True)
         return None
 
 
-def is_shariah_compliant(symbol_file_path, symbol: str) -> bool:
+def get_symbol_instrument_token() -> dict:
     """
-    Checks if the given stock symbol is part of the Shariah-compliant list.
+    Retrieves a dictionary of symbols with their corresponding instrument tokens.
     """
+    log("info", "Loading symbol-token mapping from file")
 
-    global shariah_compliant_stocks
-    if shariah_compliant_stocks is None:
+    symbol_token_map = load_symbol_token_map()
+
+    if not symbol_token_map:
+        log("info", "The symbol-token mapping file is stale. Fetching from Kite...")
         try:
-            shariah_compliant_stocks = get_cached_shariah_symbols(symbol_file_path)
+            symbol_token_map = get_symbol_instrument_token_from_kite()
         except Exception as e:
-            log("exception", f"❌ Failed to fetch Shariah symbols: {e}")
-            return False
-    return symbol.strip() in shariah_compliant_stocks
+            log("exception", f"❌ Failed to load symbol-token map: {e}", exc_info=True)
+            raise
+
+    return symbol_token_map
 
 
-def get_filtered_nse_shariah_stocks_with_instrument_token(symbol_file_path, symbol_token_file_path) -> dict:
+def get_symbol_instrument_token_from_kite():
     """
-    Retrieves a dictionary of NSE Shariah-compliant stocks with their corresponding instrument tokens.
-
-    This function first attempts to load the data from a cached CSV file. If the cache is stale or missing,
-    it fetches fresh data from the NSE, filters it, saves it to cache, and returns the result.
+    Returns dict: {symbol: instrument_token}
     """
 
-    global shariah_compliant_stock_dict
+    # Fetch all NSE instruments once
+    instruments = get_nse_instruments()
+    symbols = get_symbols()
+    symbol_token_map = {}
 
-    if shariah_compliant_stock_dict is not None:
-        return shariah_compliant_stock_dict
+    for instrument in instruments:
+        tradingsymbol = instrument["tradingsymbol"]
 
-    cached_data = load_cached_data(symbol_token_file_path)
-    if cached_data:
-        shariah_compliant_stock_dict = cached_data
-    else:
-        try:
-            instruments = fetch_nse_shariah_instruments(symbol_file_path)
-            shariah_compliant_stock_dict = filter_and_save_stocks(instruments, symbol_token_file_path)
-        except Exception as e:
-            log("exception", f"❌ Failed to fetch and filter instruments: {e}")
-            shariah_compliant_stock_dict = {}
+        if tradingsymbol in symbols:
+            symbol_token_map[tradingsymbol] = instrument["instrument_token"]
 
-    return shariah_compliant_stock_dict
+    save_symbol_token_map_to_csv(symbol_token_map)
+
+    log("info", "The symbol-token mapping file is saved successfully")
+
+    return symbol_token_map
 
 
-def fetch_nse_shariah_instruments(symbol_file_path):
+def save_symbol_token_map_to_csv(symbol_token_map):
     """
-    Fetches all NSE instruments and filters for Shariah-compliant stocks.
+    Persist symbol -> instrument_token map to CSV
+    Format:
+    symbol,instrument_token
     """
-
     try:
-        return [inst for inst in get_kite_object().instruments("NSE") if
-                is_shariah_compliant(symbol_file_path, inst['tradingsymbol'])]
+        path = Path(LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, mode="w", newline="") as file:
+            writer = csv.writer(file)
+
+            # Write header
+            writer.writerow(["symbol", "instrument_token"])
+
+            # Write data
+            for symbol, token in symbol_token_map.items():
+                writer.writerow([symbol, token])
+
     except Exception as e:
-        log("exception", f"❌ Failed to fetch NSE instruments: {e}")
-        return []
-
-
-def filter_and_save_stocks(instruments, symbol_token_file_path):
-    """
-    Filters instrument data, saves to CSV, and returns a symbol-token mapping.
-    """
-
-    filtered_data = []
-    for i in range(0, len(instruments), 50):
-        batch = instruments[i:i + 50]
-
-        for inst in batch:
-            filtered_data.append({
-                'symbol': inst['tradingsymbol'].strip(),
-                'instrument_token': inst['instrument_token']
-            })
-        sleep(3)
-
-    df = pd.DataFrame(filtered_data)
-    try:
-        df.to_csv(symbol_token_file_path, index=False)
-    except Exception as e:
-        log("exception", f"❌ Failed to save CSV: {e}")
-
-    return df.set_index('symbol')['instrument_token'].to_dict()
+        log("error", f"Failed to save symbol-token mapping file: {e}", exc_info=True)

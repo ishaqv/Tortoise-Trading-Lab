@@ -10,10 +10,10 @@ from intraday.scanner.m5.intraday_m5_breakout_scanner_bot import add_technical_i
 from util.entry_type import EntryType
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT, \
     INTRADAY_M5_TARGET_MULTIPLIER, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
-    LIQUID_SHARIAH_SYMBOL_FILE_PATH, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_LEVERAGE_MULTIPLIER, \
+    INTRADAY_LEVERAGE_MULTIPLIER, \
     EVB_SCAN_CANDLE_TIME
-from util.kite_util import get_kite_object
-from util.shariah_stock_filter import get_filtered_nse_shariah_stocks_with_instrument_token
+from util.kite_util import get_kite
+from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
 from util.trade_type import TradeType
 
@@ -45,7 +45,7 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
       - Specify num_years            → fetches last N years from today (e.g. num_years=10)
       - Neither specified            → defaults to last 10 years
     """
-    kite = get_kite_object()
+    kite = get_kite()
     to_day = datetime.today()
     # --- Resolve date range ---
     if from_year and to_year:
@@ -785,6 +785,5 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
 
 if __name__ == "__main__":
     initialize_logger(TradeType.INTRADAY, "m5")
-    stocks = get_filtered_nse_shariah_stocks_with_instrument_token(LIQUID_SHARIAH_SYMBOL_FILE_PATH,
-                                                                   LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH)
+    stocks = get_symbol_instrument_token()
     backtest_historical_data_parallel(stocks)

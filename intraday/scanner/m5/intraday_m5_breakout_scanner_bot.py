@@ -58,27 +58,11 @@ def analyze_stock_for_setup(symbol,
                             is_backtesting=False):
     """
     Analyzes intraday stock data to detect potential breakout setups
-    (either ORB or VWAP) and sends a trade alert if a valid setup is found.
+    and sends a trade alert if a valid setup is found.
 
     This function evaluates the latest candle of the given trading day to check
     for high-conviction breakout conditions using multiple technical signals such
-    as candle strength, volume confirmation, resistance break, and structure.
-
-
-    Key Checks Performed:
-        1. Strong breakout candle (e.g., full-body bullish candle).
-        2. Strong volume confirmation (based on setup type: ORB or VWAP).
-        3. Key resistance level breakout.
-        4. Presence of higher-high, higher-low structure (bullish trend structure).
-        5. Specific logic for either:
-           - ORB breakout: Early morning breakout of initial range.
-           - VWAP breakout: Volume-supported breakout above VWAP later in the session.
-
-    If all conditions are met and the confidence score exceeds a threshold, the
-    function:
-        - Calculates position size and entry details.
-        - Formats and logs a detailed message.
-        - Sends the trade setup as a Telegram alert.
+    as candle strength, volume confirmation.
     """
 
     try:
@@ -98,7 +82,7 @@ def analyze_stock_for_setup(symbol,
         df_previous_day = get_previous_day_data(df)
 
         if not is_valid_gap_opening(df_trading_day, df_previous_day):
-            log("info", f"Skipping – huge gapup opening stock {symbol}")
+            log("info", f"Skipping – huge opening gap detected in stock {symbol}")
             return None
 
         breakout_candle_date_time = breakout_candle['date']
@@ -153,7 +137,7 @@ def analyze_stock_for_setup(symbol,
             log("info", message)
 
     except Exception as e:
-        log("exception", f"Error processing stock {symbol}: {e}")
+        log("error", f"Error in analyzing stock {symbol}: {e}", exc_info=True)
 
 
 def add_technical_indicators(df):
@@ -168,7 +152,7 @@ def process_stock(symbol, stock_data_df):
             add_technical_indicators(stock_data_df)
             analyze_stock_for_setup(symbol, stock_data_df)
     except Exception as e:
-        log("exception", f"Error processing stock {symbol}: {e}")
+        log("error", f"Error processing stock {symbol}: {e}", exc_info=True)
 
 
 def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:

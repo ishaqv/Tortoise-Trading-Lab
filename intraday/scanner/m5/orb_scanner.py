@@ -1,4 +1,4 @@
-from util.global_variables import BREAKOUT_CANDLE_IDX, INTRADAY_M5_CANDLE_SIZE, OR_IN_MINUTES
+from util.global_variables import BREAKOUT_CANDLE_IDX
 from util.trade_logger import log
 
 
@@ -7,7 +7,7 @@ def get_opening_range_end_index():
         Determines the ending index (i.e., number of candles) for the opening range
     """
 
-    return int(OR_IN_MINUTES / INTRADAY_M5_CANDLE_SIZE)
+    return 3
 
 
 def get_opening_range_values(df_trading_day):

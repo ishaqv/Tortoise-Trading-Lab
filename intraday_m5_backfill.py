@@ -1,8 +1,7 @@
 from util.db_util import get_table_name, initialize_db, purge_old_historical_data, get_last_stored_timestamp_for_symbols
-from util.global_variables import INTRADAY_M5_CANDLE_SIZE, LIQUID_SHARIAH_SYMBOL_FILE_PATH, \
-    LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_CANDLE_LIMIT
-from util.kite_util import persist_historical_data
-from util.shariah_stock_filter import get_filtered_nse_shariah_stocks_with_instrument_token
+from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT
+from util.kite_util import persist_historical_data, init_kite_session
+from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger, purge_old_logs, log
 from util.trade_type import TradeType
 
@@ -21,16 +20,18 @@ def run_backfill() -> None:
         table_name = get_table_name(f"m{INTRADAY_M5_CANDLE_SIZE}")
         initialize_db(table_name)
 
-        # get stock universe
-        shariah_compliant_stock_dict = get_filtered_nse_shariah_stocks_with_instrument_token(
-            LIQUID_SHARIAH_SYMBOL_FILE_PATH, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH)
+        # init kite
+        init_kite_session()
 
-        symbols = list(shariah_compliant_stock_dict.keys())
+        # load symbols and instrument token
+        symbol_token_map = get_symbol_instrument_token()
+
+        symbols = symbol_token_map.keys()
 
         # fetch and store candle ohlcv
         last_ts_map = get_last_stored_timestamp_for_symbols(table_name, symbols)
 
-        persist_historical_data(table_name, f"{INTRADAY_M5_CANDLE_SIZE}minute", shariah_compliant_stock_dict,
+        persist_historical_data(table_name, f"{INTRADAY_M5_CANDLE_SIZE}minute", symbol_token_map,
                                 INTRADAY_M5_CANDLE_SIZE, last_ts_map)
 
         # Remove stale data
@@ -38,7 +39,8 @@ def run_backfill() -> None:
         purge_old_logs(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}")
 
     except Exception as e:
-        log("exception", f"🔥 Error during BACKFILL: {e}")
+        log("error", f"🔥 Error during BACKFILL: {e}", exc_info=True)
+        raise
 
 
 if __name__ == "__main__":

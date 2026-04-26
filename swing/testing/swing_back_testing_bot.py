@@ -7,10 +7,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from swing.scanner.swing_breakout_scanner_bot import analyze_stock_for_setup, add_technical_indicators
-from util.global_variables import SWING_TARGET_MULTIPLIER, SWING_CANDLE_LIMIT, BREAKOUT_CANDLE_IDX, \
-    MASTER_SHARIAH_SYMBOL_FILE_PATH, MASTER_SHARIAH_SYMBOL_TOKEN_FILE_PATH
-from util.kite_util import get_kite_object
-from util.shariah_stock_filter import get_filtered_nse_shariah_stocks_with_instrument_token
+from util.global_variables import SWING_TARGET_MULTIPLIER, SWING_CANDLE_LIMIT, BREAKOUT_CANDLE_IDX
+from util.kite_util import get_kite
+from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
 from util.trade_type import TradeType
 
@@ -25,7 +24,7 @@ def fetch_back_testing_data(symbol, instrument_token, period_days=3650):
         Fetches ~5 years of historical OHLCV data for a given stock symbol using the Kite API.
         Loops until ~period_days worth of data is fetched (default: 1825 days = 5 years).
     """
-    kite = get_kite_object()
+    kite = get_kite()
     to_date = datetime.today()
     ohlcv_data_list = []
     total_days_fetched = 0
@@ -366,6 +365,5 @@ def get_file_path(symbol):
 
 if __name__ == "__main__":
     initialize_logger(TradeType.SWING, "d1", log_to_console=True)
-    shariah_compliant_stock_dict = get_filtered_nse_shariah_stocks_with_instrument_token(
-        MASTER_SHARIAH_SYMBOL_FILE_PATH, MASTER_SHARIAH_SYMBOL_TOKEN_FILE_PATH)
-    backtest_historical_data_parallel(shariah_compliant_stock_dict)
+    symbol_instrument_token_dict = get_symbol_instrument_token()
+    backtest_historical_data_parallel(symbol_instrument_token_dict)

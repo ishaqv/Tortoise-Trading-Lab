@@ -1,4 +1,6 @@
+import logging
 import os
+import traceback
 
 import functions_framework
 from flask import Request, Response
@@ -9,7 +11,8 @@ from kiteconnect import KiteConnect
 KITE_API_KEY = os.environ["KITE_API_KEY"]
 KITE_API_SECRET = os.environ["KITE_API_SECRET"]
 PROJECT_ID = "trading-vps-463502"
-
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 def store_token(token):
     client = secretmanager.SecretManagerServiceClient()
@@ -37,6 +40,8 @@ def send_response(message, status):
 
 @functions_framework.http
 def kite_login_callback(request: Request):
+    request_id = request.headers.get("X-Request-Id", "unknown")
+
     # Only allow GET
     if request.method != "GET":
         return send_response("Method Not Allowed", 405)
@@ -56,12 +61,16 @@ def kite_login_callback(request: Request):
         session_data = kite.generate_session(request_token, api_secret=KITE_API_SECRET)
         access_token = session_data["access_token"]
     except Exception as e:
+        logger.error(f"Failed to generate session | request_id={request_id} | error={str(e)}")
+        logger.error(traceback.format_exc())
         return send_response("Kite Session Error", 500)
 
     # 3. Store token in GCP SecretManager
     try:
         store_token(access_token)
     except Exception as e:
+        logger.error(f"Failed to store token | request_id={request_id} | error={str(e)}")
+        logger.error(traceback.format_exc())
         return send_response("Token Save Error", 500)
 
     return send_response("Token Saved Successfully!", 200)

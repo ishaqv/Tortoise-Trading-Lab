@@ -77,6 +77,7 @@ def initialize_db(table_name):
         log("error", f"❌ MySQL database initialization error: {e}", exc_info=True)
         if conn:
             conn.rollback()
+        raise
 
     finally:
         if conn:
@@ -137,6 +138,7 @@ def purge_old_historical_data(table_name, symbols, candle_limit, optimize_after=
         log("error", f"❌ Purge error: {e}", exc_info=True)
         if conn:
             conn.rollback()
+        raise
 
     finally:
         if conn:
@@ -178,6 +180,7 @@ def write_historical_data(table_name, buffer):
         if conn:
             conn.rollback()
         log("error", f"❌ Database error during batch insert: {e}", exc_info=True)
+        raise
 
     finally:
         if conn:
@@ -236,8 +239,8 @@ def get_last_stored_timestamp_for_symbols(table_name, symbols):
         return result
 
     except Exception as e:
-        log("error", f"❌ Bulk fetch error: {e}", exc_info=True)
-        return {}
+        log("error", f"❌ Symbol last stored ts bulk fetch error: {e}", exc_info=True)
+        raise
 
     finally:
         if conn:
@@ -266,7 +269,7 @@ def get_last_stored_date_for_symbols(table_name: str, symbols: list[str]) -> dic
 
     except Exception as e:
         log("error", f"❌ Bulk fetch error: {e}", exc_info=True)
-        return {}
+        raise
 
     finally:
         if conn:
@@ -283,7 +286,6 @@ def fetch_data(table_name, symbol, candle_limit):
     """
 
     conn = None
-    data = []
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
@@ -298,6 +300,7 @@ def fetch_data(table_name, symbol, candle_limit):
 
     except Exception as e:
         log("error", f"❌ Error fetching historical data for symbol {symbol}: {e}", exc_info=True)
+        raise
 
     finally:
         if conn:
@@ -374,8 +377,8 @@ def get_historical_data_for_symbols(table_name, symbols) -> dict[str, pd.DataFra
         return {symbol: group.reset_index(drop=True) for symbol, group in df.groupby('symbol')}
 
     except Exception as e:
-        log("error", f"❌ Bulk fetch error: {e}", exc_info=True)
-        return {}
+        log("error", f"❌ Symbol historical data bulk fetch error: {e}", exc_info=True)
+        raise
 
     finally:
         if conn:
@@ -438,6 +441,7 @@ def fetch_liquid_symbols(capital, adv_days=20, participation_rate=0.005,  # your
 
     except Exception as e:
         log("error", f"❌ ADV filter error: {e}", exc_info=True)
+        raise
 
     finally:
         if conn:
