@@ -12,55 +12,47 @@ zones—so those must be reviewed **manually before taking any trade**.
 The scanner runs as a three-phase daily pipeline, each phase triggered by a separate cron job.
 
 ---
-
-Here’s a cleaner, README-ready version:
+Here’s a cleaner, structured README entry without fluff:
 
 ---
 
-## ⚙️ Phase 1 — Pre-Warmup
+## Phase 1 — Warmup
 
-**Schedule:** `9:00 AM` · Runs once daily
+**Schedule:** `9:05 AM` · Runs once daily
+
+Initializes the trading session by authenticating with the broker and preparing all required runtime data.
+
+### 🔧 Responsibilities
+
+* Fetches and caches the **Kite Connect access token**
+* Resolves and caches **instrument tokens** for all tracked symbols
+* Sends a **Telegram alert** with the login URL for manual authentication
 
 ```
 https://kite.zerodha.com/connect/login?v=3&api_key=YOUR_API_KEY
 ```
 
-This step authenticates with **Zerodha Kite Connect** and initializes the session for the trading day.
+---
+
+### 🔑 Manual Authentication (Required)
+
+* Clicking the link starts the login flow for Kite Connect API
+* This step **cannot be automated**
+* On successful login:
+
+  * A fresh **access token** is generated (valid for the trading day)
+  * The token is **cached** in SecretManager for downstream processes
 
 ---
 
-### 🔑 What this does
+### ⚠️ Notes
 
-* Opens the login flow for Kite Connect API
-* Generates a fresh **access token** (valid for the day)
-* Caches the token for use in subsequent API calls
-
----
-
-### ⚠️ Important Notes
-
-* This step is **manual and cannot be automated**
-* Must be completed **before market operations begin**
-* Token expires daily and needs to be refreshed daily
+* If authentication is not completed, all dependent processes will fail
+* Ensure the login is completed **before market hours**
 
 ---
 
-
-
----
-
-### Phase 2 — Warmup
-
-**Schedule:** `9:15 AM` · Runs once daily
-
-Authenticates with the broker and caches session credentials for the day.
-
-- Fetches and caches the Kite Connect access token
-- Resolves and caches instrument tokens for all tracked symbols
-
----
-
-### Phase 3 — Scan
+### Phase 2 — Scan
 
 **Schedule:** `9:20 AM` · Runs once daily
 
@@ -73,7 +65,7 @@ Discovers and alerts potential trade setups.
 
 ---
 
-### Phase 4 — Backfill
+### Phase 3 — Backfill
 
 **Schedule:** `3:35 PM` and `3:45 PM` · Runs twice daily
 
@@ -89,7 +81,7 @@ Persists candle data to the database for next-day indicator computation.
 ### Execution Order
 
 ```
-09:15 AM  →  Warmup   (auth + token cache)
+09:05 AM  →  Warmup   (auth + token cache)
 09:20 AM  →  Scan     (setup discovery + alerts)
 03:35 PM  →  Backfill (candle data persistence)
 03:45 PM  →  Backfill (retry / safety run)
