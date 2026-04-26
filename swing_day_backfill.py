@@ -1,7 +1,8 @@
 from util.db_util import get_table_name, initialize_db, purge_old_historical_data, \
     get_last_stored_date_for_symbols
 from util.global_variables import SWING_CANDLE_SIZE, SWING_CANDLE_LIMIT
-from util.kite_util import persist_historical_data, init_kite_session
+from util.historical_candle_data_util import persist_historical_data
+from util.kite_util import init_kite_session
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger, purge_old_logs, log
 from util.trade_type import TradeType

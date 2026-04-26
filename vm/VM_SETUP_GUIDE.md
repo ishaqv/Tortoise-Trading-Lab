@@ -213,7 +213,7 @@ gcloud init
 Instead of a basic tunnel, use a keepalive-enabled tunnel:
 
 ```
-gcloud compute ssh INSTANCE_NAME --zone=ZONE_NAME -- -N -L 3307:localhost:3306 -o ServerAliveInterval=30 -o ServerAliveCountMax=3
+gcloud compute ssh INSTANCE_NAME --zone=ZONE_NAME -- -N -L 3306:localhost:3306 -o ServerAliveInterval=30 -o ServerAliveCountMax=3
 ```
 Replace:
 
@@ -226,7 +226,7 @@ Replace:
 - `ServerAliveInterval=30` → Sends keepalive ping every 30s
 - `ServerAliveCountMax=3` → Retries before dropping
 
-This command forwards your **local port 3307** to the VM’s **MySQL port 3306**.
+This command forwards your **local port 3306** to the VM’s **MySQL port 3306**.
 
 ---
 
@@ -235,7 +235,7 @@ This command forwards your **local port 3307** to the VM’s **MySQL port 3306**
 Once the SSH tunnel is active, connect using any MySQL client (e.g., MySQL Workbench, DBeaver, or Python scripts):
 
 - **Host:** `127.0.0.1`
-- **Port:** `3307`
+- **Port:** `3306`
 - **Username:** (Your MySQL username)
 - **Password:** (Your MySQL password)
 

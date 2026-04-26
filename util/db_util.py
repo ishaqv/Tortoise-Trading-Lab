@@ -8,28 +8,30 @@ from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LI
 from util.secret_manager_util import get_db_config
 from util.trade_logger import log
 
-lock = threading.Lock()
+pool_lock = threading.Lock()
 
-pool = None
+connection_pool = None
 
 
 def get_db_connection():
-    global pool
+    global connection_pool
 
-    if not pool:
-        pool = mysql.connector.pooling.MySQLConnectionPool(
-            pool_name="stock_db_pool",
-            pool_size=10,
-            host=get_db_config()["db_host"],
-            port=get_db_config()["db_port"],  # use 3307 for local testing
-            user=get_db_config()["db_user"],
-            password=get_db_config()["db_password"],
-            database=get_db_config()["db_name"],
-            connection_timeout=5,
-            autocommit=True
-        )
+    if not connection_pool:
+        with pool_lock:
+            if not connection_pool:
+                config = get_db_config()
+                connection_pool = mysql.connector.pooling.MySQLConnectionPool(
+                    pool_name="stock_db_pool",
+                    pool_size=10,
+                    host=config["db_host"],
+                    port=get_db_config()["db_port"],
+                    user=config["db_user"],
+                    password=config["db_password"],
+                    database=config["db_name"],
+                    connection_timeout=5
+                )
 
-    conn = pool.get_connection()
+    conn = connection_pool.get_connection()
     try:
         conn.ping(reconnect=True, attempts=2, delay=1)
     except Exception as e:
@@ -38,7 +40,7 @@ def get_db_connection():
             conn.close()
         except Exception:
             pass  # already dead, ignore
-        conn = pool.get_connection()  # let this raise if pool is exhausted
+        conn = connection_pool.get_connection()  # let this raise if pool is exhausted
     return conn
 
 
@@ -52,26 +54,25 @@ def initialize_db(table_name):
 
     conn = None
     try:
-        with lock:
-            conn = get_db_connection()
-            with conn.cursor() as cursor:
-                sql = f"""
-                    CREATE TABLE IF NOT EXISTS `{table_name}` (
-                        id INT AUTO_INCREMENT PRIMARY KEY,
-                        symbol VARCHAR(10) NOT NULL,
-                        date DATETIME NOT NULL,
-                        open DECIMAL(15, 4),
-                        high DECIMAL(15, 4),
-                        low DECIMAL(15, 4),
-                        close DECIMAL(15, 4),
-                        volume BIGINT,
-                        UNIQUE KEY unique_symbol_date (symbol, date),
-                        INDEX idx_symbol_date_desc (symbol, date DESC)                        
-                    ) ENGINE=InnoDB
-                """
-                cursor.execute(sql)
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            sql = f"""
+                CREATE TABLE IF NOT EXISTS `{table_name}` (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    symbol VARCHAR(10) NOT NULL,
+                    date DATETIME NOT NULL,
+                    open DECIMAL(15, 4),
+                    high DECIMAL(15, 4),
+                    low DECIMAL(15, 4),
+                    close DECIMAL(15, 4),
+                    volume BIGINT,
+                    UNIQUE KEY unique_symbol_date (symbol, date),
+                    INDEX idx_symbol_date_desc (symbol, date DESC)                        
+                ) ENGINE=InnoDB
+            """
+            cursor.execute(sql)
 
-                conn.commit()
+            conn.commit()
 
     except mysql.connector.Error as e:
         log("error", f"❌ MySQL database initialization error: {e}", exc_info=True)
@@ -86,58 +87,54 @@ def initialize_db(table_name):
 
 def purge_old_historical_data(table_name, symbols, candle_limit, optimize_after=True):
     """
-        Purges outdated or irrelevant data from the `intraday_historical_data` table.
+    Purges outdated or irrelevant data from the historical data table.
 
-        Steps:
+    Steps:
         1. Deletes rows for any symbol *not* present in the current Shariah-compliant list.
            - This step ensures stale/delisted symbols are cleaned up.
-        2. Retains only the latest `CANDLE_LIMIT` rows per valid symbol (based on descending datetime).
+        2. Retains only the latest `candle_limit` rows per valid symbol (based on descending datetime).
            - Helps control data size for high-frequency symbols.
     """
 
     conn = None
+    symbols = list(symbols)
+    format_strings = ','.join(['%s'] * len(symbols))
+
     try:
-        with lock:
-            conn = get_db_connection()
+        conn = get_db_connection()
+        with conn.cursor(buffered=True) as cursor:
+
+            # Step 1: Delete rows that do NOT belong to any symbol in the list.
+            # The Shariah-compliant symbols list changes every two days —
+            # this purge removes residual data for any delisted symbols.
+            cursor.execute(f"""
+                DELETE FROM `{table_name}`
+                WHERE symbol NOT IN ({format_strings})
+            """, symbols)
+
+            # Step 2: Keep only the latest `candle_limit` rows per symbol — single bulk query.
+            cursor.execute(f"""
+                DELETE hd FROM `{table_name}` hd
+                LEFT JOIN (
+                    SELECT id FROM (
+                        SELECT id,
+                               ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) AS rn
+                        FROM `{table_name}`
+                        WHERE symbol IN ({format_strings})
+                    ) ranked
+                    WHERE rn <= %s
+                ) keep_rows ON hd.id = keep_rows.id
+                WHERE hd.symbol IN ({format_strings})
+                  AND keep_rows.id IS NULL
+            """, (*symbols, candle_limit, *symbols))
+
+        if optimize_after:
             with conn.cursor(buffered=True) as cursor:
-
-                # Step 1: Delete rows that do NOT belong to any symbol in the list
-
-                # The Shariah-compliant symbols list changes every two days.
-                # This purge ensures that any outdated or residual data for delisted symbols is removed from the database.
-
-                format_strings = ','.join(['%s'] * len(symbols))
-                sql = f"""
-                    DELETE FROM `{table_name}`
-                    WHERE symbol NOT IN ({format_strings})
-                """
-                cursor.execute(sql, symbols)
-
-                # Step 2: Keep only the latest 'candle_limit' rows per symbol
-                for symbol in symbols:
-                    sql = f"""
-                        DELETE hd FROM `{table_name}` hd
-                        LEFT JOIN (
-                            SELECT id FROM `{table_name}` 
-                            WHERE symbol = %s 
-                            ORDER BY date DESC 
-                            LIMIT %s
-                        ) AS keep_rows ON hd.id = keep_rows.id
-                        WHERE hd.symbol = %s AND keep_rows.id IS NULL
-                    """
-                    cursor.execute(sql, (symbol, candle_limit, symbol))
-                conn.commit()
-
-            if optimize_after:
-                with conn.cursor(buffered=True) as optimize_cursor:
-                    sql = f"OPTIMIZE TABLE `{table_name}`"
-                    optimize_cursor.execute(sql)
-                    log("info", "✅ Table optimization completed")
+                cursor.execute(f"OPTIMIZE TABLE `{table_name}`")
+                log("info", "✅ Table optimization completed")
 
     except mysql.connector.Error as e:
         log("error", f"❌ Purge error: {e}", exc_info=True)
-        if conn:
-            conn.rollback()
         raise
 
     finally:
@@ -158,23 +155,22 @@ def write_historical_data(table_name, buffer):
 
     conn = None
     try:
-        with lock:
-            conn = get_db_connection()
-            with conn.cursor() as cursor:
-                sql = f"""
-                    INSERT INTO `{table_name}` (symbol, date, open, high, low, close, volume)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        open = VALUES(open),
-                        high = VALUES(high),
-                        low = VALUES(low),
-                        close = VALUES(close),
-                        volume = VALUES(volume)
-                """
-                cursor.executemany(sql, buffer)
-                conn.commit()
-                log("info", f"✅ Successfully inserted {len(buffer)} records into the database.")
-                buffer.clear()
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            sql = f"""
+                INSERT INTO `{table_name}` (symbol, date, open, high, low, close, volume)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    open = VALUES(open),
+                    high = VALUES(high),
+                    low = VALUES(low),
+                    close = VALUES(close),
+                    volume = VALUES(volume)
+            """
+            cursor.executemany(sql, buffer)
+            conn.commit()
+            log("info", f"✅ Successfully inserted {len(buffer)} records into the database.")
+            buffer.clear()
 
     except Exception as e:
         if conn:
@@ -189,6 +185,7 @@ def write_historical_data(table_name, buffer):
 
 def get_last_stored_timestamp_for_symbols(table_name, symbols):
     conn = None
+    symbols = list(symbols)
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
@@ -247,9 +244,10 @@ def get_last_stored_timestamp_for_symbols(table_name, symbols):
             conn.close()
 
 
-def get_last_stored_date_for_symbols(table_name: str, symbols: list[str]) -> dict[str, date]:
+def get_last_stored_date_for_symbols(table_name, symbols) -> dict[str, date]:
     """Returns the latest stored date per symbol for daily candles."""
     conn = None
+    symbols = list(symbols)
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
@@ -323,6 +321,7 @@ def get_last_timestamp_map(symbol_df_map) -> dict[str, datetime]:
 
 def get_historical_data_for_symbols(table_name, symbols) -> dict[str, pd.DataFrame]:
     conn = None
+    symbols = list(symbols)
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
@@ -371,6 +370,7 @@ def get_historical_data_for_symbols(table_name, symbols) -> dict[str, pd.DataFra
         # ASC is the expected order for all downstream work — indicator calculations (RSI, EMA etc.),
         # iloc[-1] to access the latest candle, and any charting.
         # iloc[::-1] is used over sort_values() since data is already sorted — O(n) reversal vs O(n log n) re-sort.
+        df['volume'] = df['volume'].fillna(0)
         df = df.dropna().iloc[::-1].reset_index(drop=True)
 
         # Split into per-symbol DataFrames — each with a clean 0-based index
@@ -396,7 +396,6 @@ def fetch_liquid_symbols(capital, adv_days=20, participation_rate=0.005,  # your
     """
 
     conn = None
-    symbols = []
 
     min_adv = capital / participation_rate
     table_name = get_table_name("d1")

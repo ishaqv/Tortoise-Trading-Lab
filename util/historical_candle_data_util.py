@@ -85,7 +85,11 @@ def fetch_historical_data_for_symbol(symbol, instrument_token, last_stored_date,
             log("info", f"Skipping {symbol} — nothing to fetch yet")
             return []
 
-        historical_data = fetch_historical_data_from_kite(symbol, instrument_token, from_date, to_date,
+        # Kite API requires tz-naive datetimes — strip timezone before sending
+        from_date_naive = from_date.replace(tzinfo=None)
+        to_date_naive = to_date.replace(tzinfo=None)
+
+        historical_data = fetch_historical_data_from_kite(symbol, instrument_token, from_date_naive, to_date_naive,
                                                           interval)
 
         if not historical_data:
@@ -135,8 +139,12 @@ def fetch_historical_data_for_symbol_daily(symbol, instrument_token, last_stored
             log("info", f"Skipping {symbol} — daily data is already up to date")
             return []
 
+        # Kite API expects datetime objects even for daily interval — use midnight, tz-naive
+        from_date_naive = datetime(from_date.year, from_date.month, from_date.day)
+        to_date_naive = datetime(to_date.year, to_date.month, to_date.day)
+
         historical_data = fetch_historical_data_from_kite(
-            symbol, instrument_token, from_date, to_date, interval
+            symbol, instrument_token, from_date_naive, to_date_naive, interval
         )
 
         if not historical_data:

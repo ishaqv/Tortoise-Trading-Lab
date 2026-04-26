@@ -110,17 +110,13 @@ def get_nse_instruments():
 
 
 def fetch_historical_data_from_kite(symbol, instrument_token, from_date, to_date, interval, retries=3):
-    # Kite historical API requires tz-naive datetimes — strip timezone before sending
-    from_date_naive = from_date.replace(tzinfo=None)
-    to_date_naive = to_date.replace(tzinfo=None)
-
     for attempt in range(1, retries + 1):
         try:
             kite_throttle()
             historical_data = get_kite().historical_data(
                 instrument_token,
-                from_date_naive,
-                to_date_naive,
+                from_date,
+                to_date,
                 interval
             )
             return historical_data
