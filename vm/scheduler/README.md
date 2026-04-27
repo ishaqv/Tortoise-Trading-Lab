@@ -20,6 +20,34 @@ Scheduler.
 
 1. Install the **Google Cloud SDK (`gcloud`)** if it’s not already installed.
 
+### Grant Service Account Permissions(IAM roles)
+
+The default service account needs permission to build artifacts. Run:
+
+```
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
+ --role=roles/cloudbuild.builds.builder 
+```
+
+The default service account needs compute engine permissions to start and stop VM. Run:
+
+```
+gcloud projects add-iam-policy-binding <PROJECT_ID> \
+  --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
+ --role=roles/compute.instanceAdmin.v1
+```
+
+> Replace `<PROJECT_ID>` with your actual GCP project ID. You can find it by running:
+> ```bash
+> gcloud config get-value project
+> ```
+
+> To get your project number, run:
+> ```bash
+> gcloud projects describe <PROJECT_ID>
+> ``
+
 2. Open your terminal and navigate to the project directory:
 
    ```bash
