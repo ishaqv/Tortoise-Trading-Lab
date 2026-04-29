@@ -27,7 +27,7 @@ def run_backfill() -> None:
         symbols = symbol_token_map.keys()
 
         # fetch and store candle ohlcv
-        table_name = get_table_name("d1")
+        table_name = get_table_name(f"m{INTRADAY_M5_CANDLE_SIZE}")
         last_ts_map = get_last_stored_ts_for_symbols(table_name, symbols)
 
         persist_historical_data(table_name, f"{INTRADAY_M5_CANDLE_SIZE}minute", symbol_token_map,
