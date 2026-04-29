@@ -131,7 +131,7 @@ def fetch_historical_data_for_symbol_daily(symbol, instrument_token, last_stored
             from_date = last_stored_date + timedelta(days=1)
         else:
             # No data yet — pull from a reasonable default (e.g.30 days back)
-            from_date = today - timedelta(days=SWING_CANDLE_LIMIT)
+            from_date = today - timedelta(days=SWING_CANDLE_LIMIT * 2)
 
         to_date = today
 

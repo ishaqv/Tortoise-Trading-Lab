@@ -113,6 +113,8 @@ def fetch_historical_data_from_kite(symbol, instrument_token, from_date, to_date
                 to_date,
                 interval
             )
+            log("info", f"Fetched {len(historical_data)} candles data from:{from_date} - to:{to_date} for {symbol}")
+
             return historical_data
 
         except NetworkException as e:

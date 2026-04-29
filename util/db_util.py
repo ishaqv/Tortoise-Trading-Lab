@@ -1,10 +1,12 @@
 import threading
-from datetime import timedelta, datetime, date
+from collections import defaultdict
+from datetime import datetime, date
 
 import mysql.connector
+import numpy as np
 import pandas as pd
 
-from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT
+from util.global_variables import INTRADAY_M5_CANDLE_LIMIT, TRADING_CAPITAL
 from util.secret_manager_util import get_db_config
 from util.trade_logger import log
 
@@ -183,68 +185,88 @@ def write_historical_data(table_name, buffer):
             conn.close()
 
 
-def get_last_stored_timestamp_for_symbols(table_name, symbols):
-    conn = None
-    symbols = list(symbols)
-    try:
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
+# def has_recent_activity(data, lookback=3, min_candle_volume=10):
+#     recent = data[:lookback]
+#     return all(v and v > min_candle_volume for _, v in recent)
+#
+#
+# def get_last_stored_timestamp_for_symbols(table_name, symbols):
+#     conn = None
+#     symbols = list(symbols)
+#
+#     try:
+#         conn = get_db_connection()
+#         with conn.cursor() as cursor:
+#
+#             format_strings = ','.join(['%s'] * len(symbols))
+#
+#             # SQL orders DESC purely as a pagination trick — ROW_NUMBER() + rn <= N is the most efficient
+#             # way to fetch the last N candles per symbol. The DESC order itself is a means to an end,
+#             # not the desired consumption order.
+#             query = f"""
+#                 SELECT symbol, date, volume
+#                 FROM (
+#                     SELECT
+#                         symbol,
+#                         date,
+#                         volume,
+#                         ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) as rn
+#                     FROM `{table_name}`
+#                     WHERE symbol IN ({format_strings})
+#                 ) t
+#                 WHERE rn <= %s
+#                 ORDER BY symbol, date DESC
+#             """
+#
+#             cursor.execute(query, (*symbols, INTRADAY_M5_CANDLE_LIMIT))
+#             rows = cursor.fetchall()
+#
+#         if not rows:
+#             return {}
+#
+#         # Group by symbol — [(ts, volume), ...] in DESC order
+#         symbol_map = {}
+#         for symbol, ts, vol in rows:
+#             symbol_map.setdefault(symbol, []).append((ts, vol))
+#
+#         result = {}
+#
+#         for symbol, data in symbol_map.items():
+#
+#             # 🔴 Step 1 — liquidity check
+#             if not has_recent_activity(data):
+#                 log("info",
+#                     f"⚠️No recent activity for {symbol} and hence return latest known timestamp without forcing backfill")
+#                 # return latest known timestamp without forcing backfill
+#                 result[symbol] = data[0][0]
+#                 continue
+#
+#             # 🟢 Step 2 — continuity check (only for active symbols)
+#             for i in range(len(data) - 1):
+#                 current_ts, _ = data[i]
+#                 prev_ts, _ = data[i + 1]
+#
+#                 expected = current_ts - timedelta(minutes=INTRADAY_M5_CANDLE_SIZE)
+#
+#                 if prev_ts != expected:
+#                     result[symbol] = prev_ts  # gap found → backfill from here
+#                     break
+#             else:
+#                 # no gap → latest is fine
+#                 result[symbol] = data[0][0]
+#
+#         return result
+#
+#     except Exception as e:
+#         log("error", f"❌ Symbol last stored ts bulk fetch error: {e}", exc_info=True)
+#         raise
+#
+#     finally:
+#         if conn:
+#             conn.close()
 
-            format_strings = ','.join(['%s'] * len(symbols))
 
-            # SQL orders DESC purely as a pagination trick — ROW_NUMBER() + rn <= N is the most efficient
-            # way to fetch the last N candles per symbol. The DESC order itself is a means to an end,
-            # not the desired consumption order.
-            query = f"""
-                SELECT symbol, date
-                FROM (
-                    SELECT 
-                        symbol,
-                        date,
-                        ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) as rn
-                    FROM `{table_name}`
-                    WHERE symbol IN ({format_strings})
-                ) t
-                WHERE rn <= %s
-                ORDER BY symbol, date DESC
-            """
-
-            cursor.execute(query, (*symbols, INTRADAY_M5_CANDLE_LIMIT))
-            rows = cursor.fetchall()
-
-        if not rows:
-            return {}
-
-        # Group by symbol — timestamps are in DESC order
-        symbol_map = {}
-        for symbol, ts in rows:
-            symbol_map.setdefault(symbol, []).append(ts)
-
-        result = {}
-
-        for symbol, timestamps in symbol_map.items():
-            for i in range(len(timestamps) - 1):
-                current = timestamps[i]
-                prev = timestamps[i + 1]
-
-                if prev != current - timedelta(minutes=INTRADAY_M5_CANDLE_SIZE):
-                    result[symbol] = prev  # gap found, returing last continous timestamp
-                    break
-            else:
-                result[symbol] = timestamps[0]  # no gap found, all continuous — most recent is correct
-
-        return result
-
-    except Exception as e:
-        log("error", f"❌ Symbol last stored ts bulk fetch error: {e}", exc_info=True)
-        raise
-
-    finally:
-        if conn:
-            conn.close()
-
-
-def get_last_stored_date_for_symbols(table_name, symbols) -> dict[str, date]:
+def get_last_stored_ts_for_symbols(table_name, symbols) -> dict[str, date]:
     """Returns the latest stored date per symbol for daily candles."""
     conn = None
     symbols = list(symbols)
@@ -263,10 +285,10 @@ def get_last_stored_date_for_symbols(table_name, symbols) -> dict[str, date]:
             cursor.execute(query, symbols)
             rows = cursor.fetchall()
 
-        return {symbol: latest_date for symbol, latest_date in rows} if rows else {}
+        return {symbol: latest_ts for symbol, latest_ts in rows} if rows else {}
 
     except Exception as e:
-        log("error", f"❌ Bulk fetch error: {e}", exc_info=True)
+        log("error", f"❌ Symbol last stored ts bulk fetch error: {e}", exc_info=True)
         raise
 
     finally:
@@ -385,61 +407,76 @@ def get_historical_data_for_symbols(table_name, symbols) -> dict[str, pd.DataFra
             conn.close()
 
 
-def fetch_liquid_symbols(capital, adv_days=20, participation_rate=0.005,  # your order ≤ 0.5% of stock's daily value
-                         ):
-    """
-    Full-capital deployment ADV filter.
-
-    Liquidity rule:
-        capital ≤ participation_rate × ADV
-        → min_adv = capital / participation_rate
-    """
-
+def fetch_and_filter_liquid_symbols(adv_days=20, participation_rate=0.04):
     conn = None
-
-    min_adv = capital / participation_rate
+    # participation_rate=0.04 means ADV must be at least 25x your trading capital
+    min_adv = TRADING_CAPITAL / participation_rate
     table_name = get_table_name("d1")
+
     try:
         conn = get_db_connection()
         with conn.cursor() as cursor:
 
             sql = f"""
-                SELECT symbol
+                SELECT
+                    symbol,
+                    close * volume AS traded_value
                 FROM (
                     SELECT
                         symbol,
-                        COUNT(*)            AS days_available,
-                        AVG(close * volume) AS adv
-                    FROM (
-                        SELECT
-                            symbol,
-                            close,
-                            volume,
-                            ROW_NUMBER() OVER (
-                                PARTITION BY symbol
-                                ORDER BY date DESC
-                            ) AS rn
-                        FROM `{table_name}`
-                    ) ranked
-                    WHERE rn <= %s
-                    GROUP BY symbol
-                ) final
-                WHERE days_available = %s
-                AND adv >= %s
-                ORDER BY adv DESC;
+                        close,
+                        volume,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY symbol
+                            ORDER BY date DESC
+                        ) AS rn
+                    FROM `{table_name}`
+                ) ranked
+                WHERE rn <= %s;
             """
 
-            cursor.execute(sql, (adv_days, adv_days, min_adv))
-            symbols = [row[0] for row in cursor.fetchall()]
+            cursor.execute(sql, (adv_days,))
+            rows = cursor.fetchall()
 
-            log("info", (
-                f"ADV filter | capital=₹{capital:,.0f} | "
-                f"min_adv=₹{min_adv:,.0f} | "
-                f"passed={len(symbols)}"
-            ))
+        symbol_map = defaultdict(list)
+
+        for symbol, traded_value in rows:
+            symbol_map[symbol].append(traded_value)
+
+        filtered = []
+
+        for symbol, values in symbol_map.items():
+
+            if len(values) < adv_days * 0.9:
+                continue
+
+            values = np.asarray(values, dtype=np.float64)
+
+            lower = np.percentile(values, 10)
+            upper = np.percentile(values, 90)
+
+            trimmed = values[(values >= lower) & (values <= upper)]
+
+            if len(trimmed) == 0:
+                continue
+
+            adv = trimmed.mean()
+
+            if adv >= min_adv:
+                filtered.append((symbol, adv))
+
+        filtered.sort(key=lambda x: x[1], reverse=True)
+
+        symbols = [s for s, _ in filtered]
+
+        log("info", (
+            f"ADV filter | capital=₹{TRADING_CAPITAL:,.0f} | "
+            f"min_adv=₹{min_adv:,.0f} | "
+            f"passed={len(symbols)} symbols"
+        ))
 
     except Exception as e:
-        log("error", f"❌ ADV filter error: {e}", exc_info=True)
+        log("error", f"❌ Liquid symbols fetch error: {e}", exc_info=True)
         raise
 
     finally:

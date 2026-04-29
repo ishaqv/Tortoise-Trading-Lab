@@ -11,8 +11,6 @@ zones—so those must be reviewed **manually before taking any trade**.
 
 The scanner runs as a three-phase daily pipeline, each phase triggered by a separate cron job.
 
----
-Here’s a cleaner, structured README entry without fluff:
 
 ---
 
@@ -24,19 +22,19 @@ Initializes the trading session by authenticating with the broker and preparing 
 
 ### 🔧 Responsibilities
 
-* Fetches and caches the **Kite Connect access token**
-* Resolves and caches **instrument tokens** for all tracked symbols
-* Sends a **Telegram alert** with the login URL for manual authentication
+* Sends a **Telegram alert** with the login URL
+  (`https://kite.zerodha.com/connect/login?v=3&api_key=YOUR_API_KEY`) for manual authentication
+* Once authentication is completed, it proceeds to:
 
-```
-https://kite.zerodha.com/connect/login?v=3&api_key=YOUR_API_KEY
-```
+  * Fetch liquid symbols from the `d1_historical_data` table based on **Average Daily Volume (ADV)** and save them to a
+    CSV file
+  * Resolve and cache **instrument tokens** for all tracked symbols
 
 ---
 
 ### 🔑 Manual Authentication (Required)
 
-* Clicking the link starts the login flow for Kite Connect API
+* Clicking the link from Telegram message starts the login flow for Kite Connect API
 * This step **cannot be automated**
 * On successful login:
 
