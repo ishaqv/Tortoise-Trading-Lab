@@ -1,5 +1,5 @@
+import threading
 import time
-from typing import Optional
 
 from kiteconnect import KiteConnect
 from kiteconnect.exceptions import NetworkException, DataException
@@ -9,81 +9,69 @@ from util.secret_manager_util import get_kite_access_token, get_kite_api_key
 from util.telegram_bot import send_telegram_alert
 from util.trade_logger import log
 
-kite: Optional[KiteConnect] = None
+kite_lock = threading.Lock()
+kite = None
 _last_request_time: float = 0
 
 
 def get_kite() -> KiteConnect:
     global kite
     if kite is None:
-        raise RuntimeError("Kite not initialized")
+        init_kite_session()
     return kite
 
 
 def init_kite_session(max_wait=600, retry_interval=30):
-    """
-    Initialize a valid Kite session.
-
-    Attempts to establish a KiteConnect session using the cached access token.
-    If the token is expired or invalid, sends a Telegram alert with a login URL
-    and waits 120 seconds for the trader to manually re-authenticate via Zerodha.
-    After that, retries every `retry_interval` seconds until the session is
-    established or `max_wait` is exceeded.
-
-    Args:
-        max_wait (int): Maximum time in seconds to wait for a valid session. Default is 600.
-        retry_interval (int): Seconds between retry attempts after the initial 120s wait. Default is 30.
-
-    Raises:
-        RuntimeError: If a valid session cannot be established within `max_wait` seconds.
-
-    Note:
-        Assumes the trader is present at the desk when this is called — the Telegram
-        alert is expected to be acted on promptly.
-    """
-
     global kite
 
-    alert_sent = False
-    start_time = time.time()
+    # 🔒 Ensure only ONE thread can run this at a time
+    with kite_lock:
 
-    api_key = get_kite_api_key()
-    login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
+        # ✅ Double-check: maybe another thread already fixed it
+        if kite is not None:
+            try:
+                kite.profile()
+                log("info", "✅ Kite session already active. Skipping init.")
+                return
+            except:
+                pass  # token invalid → continue re-init
 
-    while time.time() - start_time < max_wait:
+        alert_sent = False
+        start_time = time.time()
 
-        access_token = get_kite_access_token()
-        kite_obj = KiteConnect(api_key=api_key)
-        kite_obj.set_access_token(access_token)
+        api_key = get_kite_api_key()
+        login_url = f"https://kite.zerodha.com/connect/login?v=3&api_key={api_key}"
 
-        try:
-            kite_obj.profile()
-            kite = kite_obj
-            log("info", "✅ Kite session established successfully.")
-            return
+        while time.time() - start_time < max_wait:
 
-        except Exception as e:
-            log("warning", f"Token invalid/expired: {e}")
+            access_token = get_kite_access_token()
+            kite_obj = KiteConnect(api_key=api_key)
+            kite_obj.set_access_token(access_token)
 
-            # ✅ Send alert only once
-            if not alert_sent:
-                message = (
-                    "🚨 <b>Kite Token Expired</b>\n"
-                    "\n"
-                    "Your trading session has ended and requires manual re-authentication.\n"
-                    "\n"
-                    f"🔗 <a href='{login_url}'>Login to Zerodha KiteConnect API</a>\n"
-                )
+            try:
+                kite_obj.profile()
+                kite = kite_obj
+                log("info", "✅ Kite session established successfully.")
+                return
 
-                send_telegram_alert(message)
-                alert_sent = True
-                time.sleep(120)  # 2 min waiting time for manual login
-                continue
+            except Exception as e:
+                log("warning", f"Token invalid/expired: {e}")
 
-            time.sleep(retry_interval)
+                if not alert_sent:
+                    message = (
+                        "🚨 <b>Kite Token Expired</b>\n\n"
+                        "Manual re-authentication required.\n\n"
+                        f"🔗 <a href='{login_url}'>Login to Zerodha KiteConnect API</a>"
+                    )
 
-    # Hard fail
-    raise RuntimeError("Unable to establish Kite session within time limit")
+                    send_telegram_alert(message)
+                    alert_sent = True
+                    time.sleep(120)
+                    continue
+
+                time.sleep(retry_interval)
+
+        raise RuntimeError("Unable to establish Kite session within time limit")
 
 
 def kite_throttle():

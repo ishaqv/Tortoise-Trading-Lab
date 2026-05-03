@@ -6,12 +6,11 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from intraday.scanner.m5.intraday_m5_breakout_scanner_bot import add_technical_indicators, analyze_stock_for_setup
+from intraday.scanner.m5.intraday_m5_breakout_scanner_bot import analyze_stock_for_setup, add_technical_indicators
 from util.entry_type import EntryType
-from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT, \
-    INTRADAY_M5_TARGET_MULTIPLIER, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
+from util.global_variables import INTRADAY_M5_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
     INTRADAY_LEVERAGE_MULTIPLIER, \
-    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH
+    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_TARGET_MULTIPLIER, INTRADAY_M5_CANDLE_LIMIT
 from util.kite_util import get_kite
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
@@ -785,5 +784,8 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
 
 if __name__ == "__main__":
     initialize_logger(TradeType.INTRADAY, "m5")
-    stocks = get_symbol_instrument_token(LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH)
-    backtest_historical_data_parallel(stocks)
+
+    # load symbols and instrument token
+    symbol_token_map = get_symbol_instrument_token(LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH)
+
+    backtest_historical_data_parallel(symbol_token_map)
