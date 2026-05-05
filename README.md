@@ -99,25 +99,79 @@ See [`crontab`](crontab) for the full cron schedule.
 
 ## ✅ Setup
 
-### 🔹 Explosive Volume Breakout
+### 🔹 Setup 1 - Explosive Volume Breakout
 
 * Stock opens with explosive volume compared to average
 
   ![EVB.png](EVB.png)
 
-### 1. Strong Bullish Breakout Candle
+#### 1. Strong Bullish Breakout Candle
 * **Wide body**: Candle body ≥ 60% of total range
 * **Small/No upper wick**: Upper wick < 25%
 
-### 2. Strong Volume
+#### 2. Strong Volume
 
 Volume ≥ 15x average volume(SMA 20 volume)
 
 ---
 
-**Disclaimer:
-No setup works forever. Markets evolve, and setups evolve with them. If you fail to adapt, your edge will gradually
-disappear.**
+### 🔹 Setup 2 - Early Momentum (Top Gainers)
+
+> **Note:** This is a complementary strategy. It cannot be backtested reliably and should be evaluated through live
+> market observation only.
+
+#### Overview
+
+This setup aims to capture early intraday momentum by focusing on the top gainers shortly after market open.
+
+![top_gainers_nse_entry.png](top_gainers_nse_entry.png)
+
+#### Time Window
+
+Scan between **9:20 AM – 9:25 AM** at the start of the trading day. This window captures genuine early movers before the
+opening volatility settles.
+
+#### Steps
+
+1. Open the NSE Top Gainers page:
+   [https://www.nseindia.com/market-data/top-gainers-losers](https://www.nseindia.com/market-data/top-gainers-losers)
+
+2. Choose an index:
+
+* **Preferred:** NIFTY or NIFTY NEXT 50
+* **Alternative:** All Securities
+
+3. Sorting logic:
+
+* For **NIFTY / NIFTY NEXT 50**:
+
+  * Sort by **% Change (descending)**
+  * Select the **top 2–3 stocks**
+  * (Liquidity filter is not required)
+* For **All Securities**:
+
+  * First sort by **Traded Value (descending)**
+  * Then manually identify stocks with highest **% Change**
+  * Select the **top 2–3 stocks**
+  * *(NSE does not support multi-column sorting)*
+
+4. Optional:
+
+* Download the CSV file and perform sorting locally for better control.
+
+#### Selection Filters
+
+* Avoid stocks with **large gap-ups**
+* Avoid stocks where **price has already extended significantly**
+
+#### Goal
+
+Identify a small set of liquid stocks showing early strength and attempt to capitalize on initial momentum moves.
+
+
+---
+
+### Disclaimer: No setup works forever. Markets evolve, and setups evolve with them. If you fail to adapt, your edge will gradually disappear. ###
 
 
 ---
@@ -150,8 +204,8 @@ disappear.**
 ## 📈 Target Strategy
 
 * Target: Entry + 3R
-* At +3R → Sell 50%, if trent has strength, Trail SL and try to extract most out of the move
-* At +3R → Sell 100% if trent has no strength
+* At +3R → Sell 50%, if trend has strength, Trail SL and try to extract most out of the move
+* At +3R → Sell 100% if trend has no strength
 * Order Type: Use a Limit SELL order
 
 ![LIMIT SELL.png](LIMIT%20SELL.png)
@@ -172,7 +226,7 @@ disappear.**
 
 | Category              | Metric              | Value        |
 |-----------------------|---------------------|--------------|
-| **Trade Stats**       | Total Trades        | 843          |
+| **Trade Stats**       | Total Trades        | 845          |
 |                       | Win Rate            | 45.9%        |
 |                       | Avg Win             | +3.0 R       |
 |                       | Avg Loss            | -1.0 R       |
@@ -180,19 +234,19 @@ disappear.**
 |                       | Expectancy          | **+0.8 R**   |
 |                       | Profit Factor       | 2.4          |
 |                       | Sharpe (R)          | 0.4          |
-|                       | Total Return        | 697.4 R      |
-|                       | Total PnL           | ₹43.4L       |
-|                       | CAGR                | 100.4%       |
+|                       | Total Return        | 699.4 R      |
+|                       | Total PnL           | ₹44.27L      |
+|                       | CAGR                | 100 %        |
 |                       | Calmar Ratio        | 14.7         |
 | **Risk**              | Max Drawdown        | -10 R        |
 |                       | Max Drawdown (%)    | -6.8%        |
 |                       | Max Losing Streak   | 10 trades    |
-| **Execution Quality** | Avg MFE (Captured)  | +3.7 R       |
-|                       | Avg MFE (Available) | +11.0 R      |
-|                       | Capture Efficiency  | 48.4%        |
-|                       | Avg MAE             | -2.1 R       |
-|                       | MAE > 0.5R          | 66.8% trades |
-|                       | Avg Trade Duration  | 8.4 min      |
+| **Execution Quality** | Avg MFE (Captured)  | +3.6 R       |
+|                       | Avg MFE (Available) | +10.7 R      |
+|                       | Capture Efficiency  | 48 %         |
+|                       | Avg MAE             | -2.0 R       |
+|                       | MAE > 0.5R          | 66.7% trades |
+|                       | Avg Trade Duration  | 8.2 min      |
 
 ---
 
