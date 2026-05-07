@@ -94,7 +94,6 @@ def get_nse_instruments():
 def fetch_historical_data_from_kite(symbol, instrument_token, from_date, to_date, interval, retries=3):
     for attempt in range(1, retries + 1):
         try:
-            kite_throttle()
             historical_data = get_kite().historical_data(
                 instrument_token,
                 from_date,
@@ -102,6 +101,10 @@ def fetch_historical_data_from_kite(symbol, instrument_token, from_date, to_date
                 interval
             )
             log("info", f"Fetched {len(historical_data)} candles data from:{from_date} - to:{to_date} for {symbol}")
+
+            # Silent failure checks
+            if not historical_data:
+                log("warning", f"EMPTY data returned from kite for : {symbol} | {from_date} to {to_date}")
 
             return historical_data
 

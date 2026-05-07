@@ -2,11 +2,8 @@ from datetime import time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-
-
 def str_to_bool(s: str) -> bool:
     return s.strip().lower() in ("true", "1", "yes", "y", "on")
-
 
 INTRADAY_M5_TARGET_MULTIPLIER = 3
 INTRADAY_M15_TARGET_MULTIPLIER = 2
@@ -33,7 +30,7 @@ EVB_SCAN_CANDLE_TIME = time(9, 15)
 BREAKOUT_CANDLE_IDX = -1
 MIN_LIQUIDITY_RATIO = 3
 MAX_WORKERS = 2
-KITE_API_REQUEST_RATE_PER_SECOND = 5
+KITE_API_REQUEST_RATE_PER_SECOND = 10
 DB_INSERT_BUFFER_SIZE = 1000
 GCP_PROJECT_ID = "trading-vps-463502"
 TRADING_CAPITAL = 500000
