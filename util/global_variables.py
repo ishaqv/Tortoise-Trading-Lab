@@ -7,7 +7,7 @@ def str_to_bool(s: str) -> bool:
 
 INTRADAY_M5_TARGET_MULTIPLIER = 3
 INTRADAY_M15_TARGET_MULTIPLIER = 2
-INTRADAY_LEVERAGE_MULTIPLIER = 5
+INTRADAY_LEVERAGE_MULTIPLIER = 4.5  # Always maintain a minimum cash buffer of 10% undeployed at all times.
 ATR_RISK_MULTIPLIER = 0.5
 SWING_TARGET_MULTIPLIER = 3
 INTRADAY_M5_CANDLE_SIZE = 5  # in minutes

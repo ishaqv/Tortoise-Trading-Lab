@@ -36,3 +36,12 @@ You won't. Fear(of being kicked out early) freezes execution — and a 1R loss q
 The stop isn't there to limit your profit. It's there to limit your *self-deception*.
 
 **Counter:** No SL in the system = no trade. Non-negotiable.
+
+## 5. Deploying full capital
+
+Never deploy 100% of available buying power. The buffer is not idle money — it is your right to modify orders freely.
+
+```
+Why : Broker recalculate margin requirements dynamically during live trades. Even a ₹1 shortfall can block critical order
+modifications — forcing decisions under pressure that cascade into larger losses.
+```
