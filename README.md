@@ -173,6 +173,26 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 
 ### Disclaimer: No setup works forever. Markets evolve, and setups evolve with them. If you fail to adapt, your edge will gradually disappear. ###
 
+---
+
+## 🧮 Position Size Calculator
+
+### How to Use
+
+📎 *
+*[Open Position Size Calculator](https://docs.google.com/spreadsheets/d/1dgWrre2iDaxW4oJEYqlwa8DinsedHIv0Q6LEBiSpBtM/edit?usp=sharing)
+**
+
+Enter your **Trading Capital**, **Symbol**, and **ATR** to calculate the recommended **Quantity**, **Stop Loss**, and *
+*Target**.
+
+> **Entry Price** is optional but recommended. If left blank, the calculator will automatically fetch the symbol's **Day
+High** via Google Finance and use it as the entry price.
+
+```
+⚠️ This is a shared read-only template. To use it, go to File → Make a copy to save your own version to Google Drive. All changes should be made in your personal copy.
+🔗 If the link is unavailable, download the file directly from this repository and open it in Google Sheets.
+``` 
 
 ---
 

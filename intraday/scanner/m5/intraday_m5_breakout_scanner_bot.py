@@ -206,8 +206,8 @@ def calculate_position(df):
 
     raw_qty = min(risk_based_qty, capital_based_qty)
 
-    if raw_qty > 10:
-        raw_qty = round(raw_qty / 10.0) * 10
+    if raw_qty > 5:
+        raw_qty = round(raw_qty / 5.0) * 5
 
     return {
         "qty": floor(raw_qty),
