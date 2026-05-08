@@ -205,6 +205,8 @@ High** via Google Finance and use it as the entry price.
 
 ![SL-M BUY.png](SL-M%20BUY.png)
 
+``⚠️ SL-M orders can experience slippage during periods of low liquidity or high volatility. In such situations, your order may execute at a higher price significantly different from your intended entry price.``
+
 ---
 
 ## ❄️ Stop Loss (SL)
@@ -218,6 +220,8 @@ High** via Google Finance and use it as the entry price.
 
 
 ![SL-M SELL.png](SL-M%20SELL.png)
+
+``⚠️ SL-M orders can experience slippage during periods of low liquidity or high volatility. In such situations, your order may execute at a lower price significantly different from your intended exit price.``
 
 ---
 
