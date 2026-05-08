@@ -94,6 +94,7 @@ def get_nse_instruments():
 def fetch_historical_data_from_kite(symbol, instrument_token, from_date, to_date, interval, retries=3):
     for attempt in range(1, retries + 1):
         try:
+            kite_throttle()  # this call is mandatory to avoid 429
             historical_data = get_kite().historical_data(
                 instrument_token,
                 from_date,
