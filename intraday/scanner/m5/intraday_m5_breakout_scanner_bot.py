@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
-from math import ceil, floor
+from math import ceil
 
 import pandas as pd
 from ta.volatility import AverageTrueRange
@@ -204,12 +204,13 @@ def calculate_position(df):
     # Capital-based qty (using leverage)
     capital_based_qty = buying_power / entry_price
 
-    raw_qty = min(risk_based_qty, capital_based_qty)
+    tradable_qty = min(risk_based_qty, capital_based_qty)
 
-    if raw_qty > 5:
-        raw_qty = round(raw_qty / 5.0) * 5
+    # Quantity is rounded to the nearest 5 for convenience.
+    if tradable_qty > 5:
+        tradable_qty = round(tradable_qty / 5.0) * 5
 
     return {
-        "qty": floor(raw_qty),
+        "qty": tradable_qty,
         "risk_per_share": round(risk_per_share, 1),
     }

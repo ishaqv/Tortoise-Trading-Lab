@@ -183,10 +183,10 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 *[Open Position Size Calculator](https://docs.google.com/spreadsheets/d/1dgWrre2iDaxW4oJEYqlwa8DinsedHIv0Q6LEBiSpBtM/edit?usp=sharing)
 **
 
-Enter your **Trading Capital**, **Symbol**, and **ATR** to calculate the recommended **Quantity**, **Stop Loss**, and *
-*Target**.
+Enter your **Trading Capital**, **Symbol**, and **ATR** to calculate the recommended **Quantity**, **Stop Loss**, and
+**Target**.
 
-> **Entry Price** is optional but recommended. If left blank, the calculator will automatically fetch the symbol's **Day
+> **Entry Price** is preferred. If left blank, the calculator will automatically fetch the symbol's **Day
 High** via Google Finance and use it as the entry price.
 
 ```
@@ -223,10 +223,33 @@ High** via Google Finance and use it as the entry price.
 
 ## 📈 Target Strategy
 
+## 📈 Strategy 1 — Fixed Exit at 3R
+
 * Target: Entry + 3R
-* At +3R → Sell 50%, if trend has strength, Trail SL and try to extract most out of the move
-* At +3R → Sell 100% if trend has no strength
+* At +3R → Sell 100% of the position
+* Best used when the trend lacks strong continuation momentum
+* Simple and easy to execute with minimal supervision
 * Order Type: Use a Limit SELL order
+
+---
+
+## 📈 Strategy 2 — Partial Exit + Dynamic Trailing
+
+* Primary Target (T1): Entry + 3R
+* At 3R → Sell 50% of the position
+* Move the SL to breakeven after partial profit booking
+* Trail the remaining position below each new swing low to capture extended moves
+* Final Target (T2): Exit when T2 is reached, the trailing SL is hit, or the move shows signs of exhaustion.
+* Requires active supervision and disciplined trade management
+* Order Type: Use a Limit SELL order
+
+### ⚠️ Important
+
+```
+No strategy is perfect. Some trades will reverse after hitting T1, reducing the profit on the remaining position. Other
+trades will continue trending strongly and reach T2, resulting in significantly larger gains.
+Choose the strategy that best fits your personality, risk tolerance, and trading style. You must be mentally prepared for both outcomes and avoid judging the strategy based on a few trades.
+```
 
 ![LIMIT SELL.png](LIMIT%20SELL.png)
 
@@ -240,7 +263,7 @@ High** via Google Finance and use it as the entry price.
 * **SL is a validation stop**, not pain threshold.
 * When the trade fails structurally, exit. Don’t wait for confirmation of failure.
 
-### 📊 Strategy Performance Summary (EVB — Long Only)
+### 📊 Strategy Performance Summary (EVB)
 
 ```Capital = 5L, Backtest Duration = 3 years```
 
