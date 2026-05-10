@@ -8,7 +8,7 @@ import pandas as pd
 
 from intraday.scanner.m5.intraday_m5_breakout_scanner_bot import analyze_stock_for_setup, add_technical_indicators
 from util.entry_type import EntryType
-from util.ext_model_util import ExitModel
+from util.exit_model_util import ExitModel
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
     INTRADAY_LEVERAGE_MULTIPLIER, \
     EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_TARGET_MULTIPLIER, INTRADAY_M5_CANDLE_LIMIT
