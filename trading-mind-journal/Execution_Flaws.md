@@ -45,3 +45,23 @@ Never deploy 100% of available buying power. The buffer is not idle money — it
 Why : Broker recalculate margin requirements dynamically during live trades. Even a ₹1 shortfall can block critical order
 modifications — forcing decisions under pressure that cascade into larger losses.
 ```
+
+## 6. Ignoring Spread & Liquidity
+
+A perfect setup means nothing if execution quality is poor.
+Wide spreads and weak order-book depth silently destroy expectancy through slippage, partial fills, and bad stop-loss
+execution.
+
+A stock with low liquidity can turn a planned 1R loss into a much larger uncontrolled loss within seconds.
+
+**Counter:** Never trade stocks with unstable or unusually wide spreads.
+If spread exceeds an acceptable percentage of ATR, skip the trade — no matter how good the chart looks.
+
+```text
+Rule:
+Avoid stocks where spread exceeds:
+- 5% of ATR for large-caps
+- 8% of ATR for mid-caps
+- 10–12% of ATR for small-caps
+
+```

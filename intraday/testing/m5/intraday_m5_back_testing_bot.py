@@ -115,7 +115,8 @@ def process_symbol(
         instrument_token,
         exit_model=ExitModel.DYNAMIC,
         partial_exit_pct=0.6,  # 0.5 = 50%, 0.3 = 30%
-        final_target_r=10
+        final_target_r=10,
+        atr_entry_buffer=0.1
 ):
     ENTRY_LOOKAHEAD_CANDLES = 5
 
@@ -222,7 +223,7 @@ def process_symbol(
 
                     trigger_price = (
                             confirmation_candle["high"] +
-                            0.1 * atr
+                            atr_entry_buffer * atr
                     )
 
                 else:
@@ -232,7 +233,7 @@ def process_symbol(
                                 confirmation_candle["low"],
                                 breakout_candle["low"]
                             ) -
-                            0.1 * atr
+                            atr_entry_buffer * atr
                     )
 
                 entry_filled = False
