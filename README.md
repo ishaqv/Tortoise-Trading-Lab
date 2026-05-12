@@ -225,10 +225,10 @@ High** via Google Finance and use it as the entry price.
 
 ## 📈 Target Strategy
 
-## 📈 Strategy 1 — Fixed Exit at 3R
+## 📈 Strategy 1 — Fixed Exit at 3.75R
 
-* Target: Entry + 3R
-* At +3R → Sell 100% of the position
+* Target: Entry + 3.75R
+* At 3.75R → Sell 100% of the position
 * Best used when the trend lacks strong continuation momentum
 * Simple and easy to execute with minimal supervision
 * Order Type: Use a Limit SELL order
@@ -237,8 +237,8 @@ High** via Google Finance and use it as the entry price.
 
 ## 📈 Strategy 2 — Partial Exit + Dynamic Trailing
 
-* Primary Target (T1): Entry + 3R
-* At 3R → Sell 60% of the position
+* Primary Target (T1): Entry + 3.75R
+* At 3.75R → Sell 50% of the position
 * Move the SL to breakeven after partial profit booking
 * Trail the remaining position below each new swing low to capture extended moves
 * Final Target (T2): Exit when T2 is reached, the trailing SL is hit, or the move shows signs of exhaustion.
@@ -273,55 +273,55 @@ Choose the strategy that best fits your personality, risk tolerance, and trading
 
 | Category              | Metric              | Value        |
 |-----------------------|---------------------|--------------|
-| **Trade Stats**       | Total Trades        | 894          |
-|                       | Win Rate            | 46%          |
-|                       | Avg Win             | +3.0 R       |
+| **Trade Stats**       | Total Trades        | 884          |
+|                       | Win Rate            | 41.4%        |
+|                       | Avg Win             | +3.7 R       |
 |                       | Avg Loss            | -1.0 R       |
-|                       | Win/Loss Ratio      | 3.0          |
-|                       | Expectancy          | **+0.8 R**   |
-|                       | Profit Factor       | 2.4          |
+|                       | Win/Loss Ratio      | 3.7          |
+|                       | Expectancy          | **+1.0 R**   |
+|                       | Profit Factor       | 2.5          |
 |                       | Sharpe (R)          | 0.4          |
-|                       | Total Return        | 744.5 R      |
-|                       | Total PnL           | ₹43.33L      |
-|                       | CAGR                | 96 %         |
-|                       | Calmar Ratio        | 16.3         |
-| **Risk**              | Max Drawdown        | -12 R        |
-|                       | Max Drawdown (%)    | -5.9%        |
-|                       | Max Losing Streak   | 12 trades    |
-| **Execution Quality** | Avg MFE (Captured)  | +3.7 R       |
+|                       | Total Return        | 846.1 R      |
+|                       | Total PnL           | ₹49.55L      |
+|                       | CAGR                | 102.8 %      |
+|                       | Calmar Ratio        | 17.8         |
+| **Risk**              | Max Drawdown        | -14 R        |
+|                       | Max Drawdown (%)    | -5.8%        |
+|                       | Max Losing Streak   | 14 trades    |
+| **Execution Quality** | Avg MFE (Captured)  | +3.8 R       |
 |                       | Avg MFE (Available) | +10.6 R      |
-|                       | Capture Efficiency  | 48.7 %       |
-|                       | Avg MAE             | -2.0 R       |
-|                       | MAE > 0.5R          | 66.1% trades |
-|                       | Avg Trade Duration  | 8.3 min      |
+|                       | Capture Efficiency  | 49.4 %       |
+|                       | Avg MAE             | -2.1 R       |
+|                       | MAE > 0.5R          | 68.4% trades |
+|                       | Avg Trade Duration  | 9.3 min      |
 
 ---
 
-### Dynaic Target - 60% at 3R and 40% 10R
+### Dynaic Target - 50% at 3.75R and 50% at 10R
 
 | Category              | Metric              | Value        |
 |-----------------------|---------------------|--------------|
-| **Trade Stats**       | Total Trades        | 894          |
-|                       | Win Rate            | 46%          |
-|                       | Avg Win             | +3.5 R       |
+| **Trade Stats**       | Total Trades        | 884          |
+|                       | Win Rate            | 41.4%        |
+|                       | Avg Win             | +4.3 R       |
 |                       | Avg Loss            | -1.0 R       |
-|                       | Win/Loss Ratio      | 3.5          |
-|                       | Expectancy          | **+1.1 R**   |
+|                       | Win/Loss Ratio      | 4.3          |
+|                       | Expectancy          | **+1.2 R**   |
 |                       | Profit Factor       | 2.9          |
 |                       | Sharpe (R)          | 0.4          |
-|                       | Total Return        | 966.8 R      |
-|                       | Total PnL           | ₹57.03L      |
-|                       | CAGR                | 111 %        |
-|                       | Calmar Ratio        | 19.1         |
-| **Risk**              | Max Drawdown        | -12 R        |
-|                       | Max Drawdown (%)    | -5.8%        |
-|                       | Max Losing Streak   | 12 trades    |
+|                       | Total Return        | 1044.6 R     |
+|                       | Total PnL           | ₹62.51L      |
+|                       | CAGR                | 116.2 %      |
+|                       | Calmar Ratio        | 19.2         |
+| **Risk**              | Max Drawdown        | -14 R        |
+|                       | Max Drawdown (%)    | -6%          |
+|                       | Max Losing Streak   | 14 trades    |
 | **Execution Quality** | Avg MFE (Captured)  | +4.6 R       |
 |                       | Avg MFE (Available) | +10.6 R      |
-|                       | Capture Efficiency  | 54.6 %       |
-|                       | Avg MAE             | -2.2 R       |
-|                       | MAE > 0.5R          | 74.7% trades |
-|                       | Avg Trade Duration  | 13.8 min     |
+|                       | Capture Efficiency  | 54.8 %       |
+|                       | Avg MAE             | -2.3 R       |
+|                       | MAE > 0.5R          | 75.3% trades |
+|                       | Avg Trade Duration  | 14.6 min     |
 
 #### You can be wrong 60% of the time and still make money, if your winners are bigger than your losers.A trader’s edge isn’t in how often they win, but in how little they lose.
 

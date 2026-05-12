@@ -113,8 +113,8 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
 def process_symbol(
         symbol,
         instrument_token,
-        exit_model=ExitModel.DYNAMIC,
-        partial_exit_pct=0.6,  # 0.5 = 50%, 0.3 = 30%
+        exit_model=ExitModel.STATIC,
+        partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
         final_target_r=10,
         atr_entry_buffer=0.1
 ):
