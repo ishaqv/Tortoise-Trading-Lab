@@ -61,6 +61,7 @@ def get_stock_dataframe(symbol, table_name):
     df = df.dropna().sort_values('date', ascending=True)
     return df
 
+
 def get_stock_df_from_db(symbol, breakout_window):
     """
        Retrieves intraday stock data for a given symbol from the database

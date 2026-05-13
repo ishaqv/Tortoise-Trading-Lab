@@ -1,10 +1,8 @@
-
 ## Strict Trading Rules – No Excuses Allowed
 
 **✅ Do not hesitate to take entry due to the fear of failure.**
 
 Fear has no place in a rule-based system. If setup matches criteria, act.
-
 
 **✅ Do not chase price if the entry order gets partially filled.**
 

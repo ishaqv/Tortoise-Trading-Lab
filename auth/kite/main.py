@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 client = secretmanager.SecretManagerServiceClient()
 
+
 def store_token(token):
     client.add_secret_version(
         request={

@@ -32,6 +32,7 @@ BREAKOUT_WINDOWS = [
     }
 ]
 
+
 def get_file_path(symbol):
     """Returns the file path for CSV data for a symbol."""
     os.makedirs(DATA_FOLDER, exist_ok=True)
@@ -50,15 +51,13 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
     # --- Resolve date range ---
     if from_year and to_year:
         start_date = datetime(from_year, 1, 1)
-        end_date   = datetime(to_year, 12, 31)
+        end_date = datetime(to_year, 12, 31)
     elif num_years:
         end_date = to_day
         start_date = end_date - timedelta(days=365 * num_years)
     else:
         end_date = to_day
         start_date = end_date - timedelta(days=365 * 10)  # default: 10 years
-
-
 
     ohlcv_data_list = []
 
@@ -241,7 +240,6 @@ def process_symbol(
                 for row in df_entry_window.itertuples():
 
                     if row.low <= trigger_price <= row.high:
-
                         entry_price = trigger_price
 
                         triggered_time = row.date
@@ -839,6 +837,7 @@ def process_symbol(
 
     return results
 
+
 # =========================================================
 # ===== DYNAMIC COMPOUNDING STATIC CAPITAL SIMULATION =====
 # =========================================================
@@ -1248,7 +1247,6 @@ def plot_real_equity(df):
 # =========================================================
 
 def backtest_historical_data_parallel(symbols_dict, max_workers=8):
-
     all_results = []
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:

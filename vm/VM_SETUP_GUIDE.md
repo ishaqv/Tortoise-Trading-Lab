@@ -1,7 +1,5 @@
 # 🧠 Algo Trading Lab – GCP Deployment Guide
 
-
-
 ---
 
 ## 🚀 1. Create Your GCP VM Instance

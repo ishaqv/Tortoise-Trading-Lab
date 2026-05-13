@@ -94,6 +94,7 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
         print(f"Error fetching data for {symbol}: {e}")
         return False
 
+
 def process_symbol(symbol, instrument_token):
     ENTRY_LOOKAHEAD_CANDLES = 3
     initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M15_CANDLE_SIZE}", log_to_console=True)
@@ -134,7 +135,7 @@ def process_symbol(symbol, instrument_token):
 
         df_after_breakout = df_trading_day_full[
             df_trading_day_full['date'] > breakout_time
-        ]
+            ]
         if df_after_breakout.empty:
             continue
 
@@ -283,6 +284,7 @@ def process_symbol(symbol, instrument_token):
         results.append(result)
 
     return results
+
 
 # =========================================================
 # ===== DYNAMIC COMPOUNDING STATIC CAPITAL SIMULATION =====
@@ -693,7 +695,6 @@ def plot_real_equity(df):
 # =========================================================
 
 def backtest_historical_data_parallel(symbols_dict, max_workers=8):
-
     all_results = []
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:

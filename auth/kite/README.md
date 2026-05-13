@@ -1,6 +1,7 @@
 # Kite Login Callback — Setup Guide
 
-Automatically handles the Kite Connect login callback to capture and store the access token, which is then reused by the trading scanner.
+Automatically handles the Kite Connect login callback to capture and store the access token, which is then reused by the
+trading scanner.
 
 ---
 
@@ -18,7 +19,8 @@ Automatically handles the Kite Connect login callback to capture and store the a
 
 Before deploying, make sure you have:
 
-- A Kite Connect app on the [Zerodha Developer Dashboard](https://developers.kite.trade/apps) with your **API Key** and **API Secret**
+- A Kite Connect app on the [Zerodha Developer Dashboard](https://developers.kite.trade/apps) with your **API Key** and
+  **API Secret**
 - A **Google Cloud** account with Cloud Functions and Secret Manager enabled
 - The **Google Cloud SDK (`gcloud`)** installed and authenticated
 
@@ -83,11 +85,13 @@ gcloud functions deploy kite_login_callback \
 
 ### Step 1 — Configure the Redirect URL
 
-In your [Kite Connect app settings](https://developers.kite.trade/apps), set the redirect URL to your deployed Cloud Function's URL.
+In your [Kite Connect app settings](https://developers.kite.trade/apps), set the redirect URL to your deployed Cloud
+Function's URL.
 
 ![redirect_url.png](redirect_url.png)
 
 **Rules for the redirect URL:**
+
 - Must match exactly (no trailing slashes, no wildcards, no query parameters)
 
 ### Step 2 — Initiate Login
@@ -115,9 +119,9 @@ Manual Login → Zerodha Redirect → Cloud Function → Token Exchange → Stor
 
 ## Token Validity
 
-| Detail | Info |
-|---|---|
-| Expiry | Daily, around 6:00 AM IST |
+| Detail        | Info                                        |
+|---------------|---------------------------------------------|
+| Expiry        | Daily, around 6:00 AM IST                   |
 | Refresh token | Not available — login is required every day |
 
 ---
@@ -125,5 +129,6 @@ Manual Login → Zerodha Redirect → Cloud Function → Token Exchange → Stor
 ## Important Notes
 
 - **Daily login is mandatory.** Tokens expire every day and must be refreshed manually.
-- **Do not automate the login flow.** Automating login (e.g., via Selenium or direct API calls) violates Zerodha's terms of service and is fragile.
+- **Do not automate the login flow.** Automating login (e.g., via Selenium or direct API calls) violates Zerodha's terms
+  of service and is fragile.
 - **Keep your `access_token` secure.** Treat it like a password — do not log or expose it.

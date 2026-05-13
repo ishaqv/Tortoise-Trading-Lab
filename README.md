@@ -26,9 +26,10 @@ Initializes the trading session by authenticating with the broker and preparing 
   (`https://kite.zerodha.com/connect/login?v=3&api_key=YOUR_API_KEY`) for manual authentication
 * Once authentication is completed, it proceeds to:
 
-  * Fetch liquid symbols from the `d1_historical_data` table based on **Average Daily Volume (ADV)** and save them to a
-    CSV file
-  * Resolve and cache **instrument tokens** for all tracked symbols
+    * Fetch liquid symbols from the `d1_historical_data` table based on **Average Daily Volume (ADV)** and save them to
+      a
+      CSV file
+    * Resolve and cache **instrument tokens** for all tracked symbols
 
 ---
 
@@ -38,8 +39,8 @@ Initializes the trading session by authenticating with the broker and preparing 
 * This step **cannot be automated**
 * On successful login:
 
-  * A fresh **access token** is generated (valid for the trading day)
-  * The token is **cached** in SecretManager for downstream processes
+    * A fresh **access token** is generated (valid for the trading day)
+    * The token is **cached** in SecretManager for downstream processes
 
 ---
 
@@ -89,7 +90,6 @@ See [`crontab`](crontab) for the full cron schedule.
 
 ---
 
-
 ## ✨ Chart Configuration
 
 * **Entry Timeframe**: 5-minute
@@ -106,6 +106,7 @@ See [`crontab`](crontab) for the full cron schedule.
   ![EVB.png](EVB.png)
 
 #### 1. Strong Bullish Breakout Candle
+
 * **Wide body**: Candle body ≥ 60% of total range
 * **Small/No upper wick**: Upper wick < 25%
 
@@ -145,15 +146,15 @@ opening volatility settles.
 
 * For **NIFTY / NIFTY NEXT 50**:
 
-  * Sort by **% Change (descending)**
-  * Select the **top 2–3 stocks**
-  * (Liquidity filter is not required)
+    * Sort by **% Change (descending)**
+    * Select the **top 2–3 stocks**
+    * (Liquidity filter is not required)
 * For **All Securities**:
 
-  * First sort by **Traded Value (descending)**
-  * Then manually identify stocks with highest **% Change**
-  * Select the **top 2–3 stocks**
-  * *(NSE does not support multi-column sorting)*
+    * First sort by **Traded Value (descending)**
+    * Then manually identify stocks with highest **% Change**
+    * Select the **top 2–3 stocks**
+    * *(NSE does not support multi-column sorting)*
 
 4. Optional:
 
@@ -179,7 +180,9 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 
 ### How to Use
 
-📎 **[Open Position Size Calculator](https://docs.google.com/spreadsheets/d/1dgWrre2iDaxW4oJEYqlwa8DinsedHIv0Q6LEBiSpBtM/edit?usp=sharing)**
+📎 *
+*[Open Position Size Calculator](https://docs.google.com/spreadsheets/d/1dgWrre2iDaxW4oJEYqlwa8DinsedHIv0Q6LEBiSpBtM/edit?usp=sharing)
+**
 
 Enter your **Trading Capital**, **Symbol**, and **ATR** to calculate the recommended **Quantity**, **Stop Loss**, and
 **Target**.

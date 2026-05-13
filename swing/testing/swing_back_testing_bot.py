@@ -214,7 +214,6 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
 
     """
 
-
     all_results = []
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -258,16 +257,16 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
     overall_avg_loss_r = round(losses["R:R"].mean(), 2) if not losses.empty else 0
 
     overall_expectancy_r = round(
-        (overall_win_rate/100 * overall_avg_win_r) +
-        (loss_rate/100 * overall_avg_loss_r), 2
+        (overall_win_rate / 100 * overall_avg_win_r) +
+        (loss_rate / 100 * overall_avg_loss_r), 2
     )
 
     overall_avg_profit_amt = round(wins["Profit Amount"].mean()) if not wins.empty else 0
     overall_avg_loss_amt = round(losses["Loss Amount"].mean()) if not losses.empty else 0
 
     overall_expectancy_rupees = round(
-        (overall_win_rate/100 * overall_avg_profit_amt) -
-        (loss_rate/100 * overall_avg_loss_amt)
+        (overall_win_rate / 100 * overall_avg_profit_amt) -
+        (loss_rate / 100 * overall_avg_loss_amt)
     )
 
     print(f"\n------ Overall Strategy Expectancy ------")
@@ -306,16 +305,16 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
         avg_loss_r = round(losses["R:R"].mean(), 2)
 
         expectancy_r = round(
-            (win_rate/100 * avg_win_r) +
-            (loss_rate/100 * avg_loss_r), 2
+            (win_rate / 100 * avg_win_r) +
+            (loss_rate / 100 * avg_loss_r), 2
         )
 
         avg_win_amt = round(wins["Profit Amount"].mean())
         avg_loss_amt = round(losses["Loss Amount"].mean())
 
         expectancy_rupees = round(
-            (win_rate/100 * avg_win_amt) -
-            (loss_rate/100 * avg_loss_amt)
+            (win_rate / 100 * avg_win_amt) -
+            (loss_rate / 100 * avg_loss_amt)
         )
 
         # =====================

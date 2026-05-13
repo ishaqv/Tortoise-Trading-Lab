@@ -36,5 +36,3 @@ def manage_vm(request):
         return f"Stopped {instance}"
     else:
         return "Invalid action"
-
-
