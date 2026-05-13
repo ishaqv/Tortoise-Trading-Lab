@@ -1,24 +1,23 @@
 # GCP VM Auto Scheduler for NSE Trading Hours
 
-This project automatically **starts and stops a GCP VM** during **NSE trading hours** using **Cloud Functions** and *
-*Cloud Scheduler**.
+This project automatically **starts and stops a GCP VM** during **NSE trading hours** using **Cloud Functions**
+and **Cloud Scheduler**.
 
-GCP does not support timer-triggered functions directly, so we use an HTTP-triggered Cloud Function scheduled with Cloud
-Scheduler.
+GCP does not support timer-triggered functions directly, so we use an HTTP-triggered Cloud Function scheduled
+with Cloud Scheduler.
 
 ## Project Structure
 
 ```
-.
+
 ├── main.py              # Contains the Cloud Function code
 ├── requirements.txt     # Dependencies for the Cloud Function
 ```
 
-## Deploying the Functions
 
 ### 🛠️ Setup & Run Instructions
 
-1. Install the **Google Cloud SDK (`gcloud`)** if it’s not already installed.
+Install the **Google Cloud SDK (`gcloud`)** if it’s not already installed.
 
 ### Grant Service Account Permissions(IAM roles)
 
@@ -26,16 +25,16 @@ The default service account needs permission to build artifacts. Run:
 
 ```
 gcloud projects add-iam-policy-binding <PROJECT_ID> \
-  --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
- --role=roles/cloudbuild.builds.builder 
+   --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
+   --role=roles/cloudbuild.builds.builder 
 ```
 
 The default service account needs compute engine permissions to start and stop VM. Run:
 
 ```
 gcloud projects add-iam-policy-binding <PROJECT_ID> \
-  --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
- --role=roles/compute.instanceAdmin.v1
+   --member="serviceAccount:<PROJECT_NUMBER>-compute@developer.gserviceaccount.com" \
+   --role=roles/compute.instanceAdmin.v1
 ```
 
 > Replace `<PROJECT_ID>` with your actual GCP project ID. You can find it by running:
@@ -44,17 +43,19 @@ gcloud projects add-iam-policy-binding <PROJECT_ID> \
 > ```
 
 > To get your project number, run:
-> ```bash
+> ```
 > gcloud projects describe <PROJECT_ID>
-> ``
+> ```
 
-2. Open your terminal and navigate to the project directory:
+## Deploying the Functions
+
+1. Open your terminal and navigate to the project directory:
 
    ```bash
    cd vm/scheduler
    ```
 
-3. Run the required commands from the following.
+2. Run the required commands from the following.
 
 ### 1. Deploy the function to **start** the VM
 
