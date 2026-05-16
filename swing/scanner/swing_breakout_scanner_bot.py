@@ -15,14 +15,21 @@ from util.trade_type import TradeType
 
 
 def is_liquid_stock(breakout_candle):
-    """
-    Liquidity filter combines daily ADV check with breakout-candle INR turnover.
-    """
-    price = breakout_candle['close']
-    breakout_vol = breakout_candle['volume']
-    breakout_inr = breakout_vol * price
-    liquidity_ratio = ceil(breakout_inr / TRADING_CAPITAL)
-    return liquidity_ratio > MIN_LIQUIDITY_RATIO
+    breakout_value = (
+            breakout_candle['close'] *
+            breakout_candle['volume']
+    )
+
+    effective_capital = (
+            TRADING_CAPITAL *
+            INTRADAY_LEVERAGE_MULTIPLIER
+    )
+
+    participation_rate = (
+            effective_capital / breakout_value
+    )
+
+    return participation_rate <= MAX_BREAKOUT_PARTICIPATION
 
 
 def analyze_stock_for_setup(symbol,

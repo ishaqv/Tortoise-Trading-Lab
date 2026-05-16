@@ -1,6 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
-from math import ceil
 
 import pandas as pd
 from ta.volatility import AverageTrueRange
@@ -14,15 +13,22 @@ from util.trade_logger import log
 from util.trade_type import TradeType
 
 
-def is_liquid_stock(breakout_candle):
-    """
-    Liquidity filter combines daily ADV check with breakout-candle INR turnover.
-    """
-    price = breakout_candle['close']
-    breakout_vol = breakout_candle['volume']
-    breakout_inr = breakout_vol * price
-    liquidity_ratio = ceil(breakout_inr / TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER)
-    return liquidity_ratio > MIN_LIQUIDITY_RATIO
+def is_liquid_breakout(breakout_candle):
+    breakout_value = (
+            breakout_candle['close'] *
+            breakout_candle['volume']
+    )
+
+    effective_capital = (
+            TRADING_CAPITAL *
+            INTRADAY_LEVERAGE_MULTIPLIER
+    )
+
+    participation_rate = (
+            effective_capital / breakout_value
+    )
+
+    return participation_rate <= MAX_BREAKOUT_PARTICIPATION
 
 
 def get_previous_day_data(df):
@@ -75,7 +81,7 @@ def analyze_stock_for_setup(symbol,
 
         breakout_candle = df_trading_day.iloc[BREAKOUT_CANDLE_IDX]
 
-        if not is_liquid_stock(breakout_candle):
+        if not is_liquid_breakout(breakout_candle):
             log("info", f"Skipping – illiquid stock {symbol}")
             return None
 

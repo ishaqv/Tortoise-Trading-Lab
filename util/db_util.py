@@ -6,7 +6,7 @@ import mysql.connector
 import numpy as np
 import pandas as pd
 
-from util.global_variables import INTRADAY_M5_CANDLE_LIMIT, TRADING_CAPITAL
+from util.global_variables import INTRADAY_M5_CANDLE_LIMIT, TRADING_CAPITAL, MIN_ADV_PARTICIPATION_RATE
 from util.secret_manager_util import get_db_config
 from util.trade_logger import log
 
@@ -407,10 +407,10 @@ def get_historical_data_for_symbols(table_name, symbols) -> dict[str, pd.DataFra
             conn.close()
 
 
-def fetch_and_filter_liquid_symbols(adv_days=20, participation_rate=0.04):
+def fetch_and_filter_liquid_symbols(adv_days=20):
     conn = None
     # participation_rate=0.04 means ADV must be at least 25x your trading capital
-    min_adv = TRADING_CAPITAL / participation_rate
+    min_adv = TRADING_CAPITAL / MIN_ADV_PARTICIPATION_RATE
     table_name = get_table_name("d1")
 
     try:
