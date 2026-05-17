@@ -178,6 +178,27 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 
 ## 🧮 Position Size Calculator
 
+Position size is calculated using the logic below.
+
+```
+  # Buying power (equity × leverage)
+    buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
+    
+    # REAL risk (based on equity)
+    risk_amount = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
+
+    # Risk-based qty
+    risk_based_qty = risk_amount / risk_per_share
+
+    # Capital-based qty (using leverage)
+    capital_based_qty = buying_power / entry_price
+
+    tradable_qty = min(risk_based_qty, capital_based_qty)
+
+    # Quantity is rounded to the nearest 5 for convenience.
+    if tradable_qty > 5:
+        tradable_qty = round(tradable_qty / 5.0) * 5
+```
 ### How to Use
 
 ### 📎 [Open Position Size Calculator](https://docs.google.com/spreadsheets/d/1dgWrre2iDaxW4oJEYqlwa8DinsedHIv0Q6LEBiSpBtM/edit?usp=sharing)

@@ -7,6 +7,7 @@ from ta.volatility import AverageTrueRange
 from intraday.scanner.m5.volume_explosion_long_breakout_scanner import is_volume_explosion_long_breakout_detected
 from util.entry_type import EntryType
 from util.global_variables import *
+from util.kite_util import get_bid_ask
 from util.setup_type import IntradaySetupType
 from util.telegram_bot import send_telegram_alert
 from util.trade_logger import log
@@ -18,6 +19,9 @@ def is_liquid_breakout(breakout_candle):
             breakout_candle['close'] *
             breakout_candle['volume']
     )
+
+    if breakout_value <= 0:
+        return False
 
     effective_capital = (
             TRADING_CAPITAL *
@@ -109,10 +113,8 @@ def analyze_stock_for_setup(symbol,
                 is_breakout_detected = True
 
         if is_breakout_detected:
-            position = calculate_position(df_trading_day)
-            if not position:
-                return None
-
+            breakout_atr = breakout_candle['atr']
+            risk_per_share = get_risk_per_share(breakout_atr)
             if is_backtesting:
                 return {
                     'Symbol': symbol,
@@ -120,23 +122,21 @@ def analyze_stock_for_setup(symbol,
                     "Day": breakout_candle_date_time.strftime("%A"),
                     'Setup': setup_type.name,
                     'Entry Type': entry_type.name,
-                    'Qty': position["qty"],
-                    'Risk': position['risk_per_share']
+                    'Risk': risk_per_share
                 }
 
-            icon = "🟢" if entry_type == EntryType.LONG else "🔴"
+            entry_type_icon = "🟢" if entry_type == EntryType.LONG else "🔴"
+            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
+            spread_icon = "☠️" if spread_atr_ratio > 10 or spread_atr_ratio == 0 else "✅"
 
             message = (
-                f"{icon} <b>{entry_type.name} SETUP DETECTED</b>\n\n\n"
-
-                f"<b>📌 Symbol : </b> {symbol}\n\n"
-                f"<b>🧠 Setup : </b> {setup_type.name}\n\n"
-                f"<b>⏱ Trade : </b> {TradeType.INTRADAY.name}\n\n\n"
-
-                f"📊 <b>Position</b>\n\n"
-                f"   Qty : {position['qty']}\n\n"
-                f"⚠️ Risk : {position['risk_per_share']} pips\n\n"
-                f"🎯 Target : {round(position['risk_per_share'] * INTRADAY_M5_TARGET_MULTIPLIER, 1)} pips\n"
+                f"{entry_type_icon} <b>{entry_type.name} SETUP DETECTED</b>\n\n\n"
+                f"📌 <b>Symbol : </b> {symbol}\n\n"
+                f"🧠 <b>Setup : </b> {setup_type.name}\n\n"
+                f"⚡ <b>Trade : </b> {TradeType.INTRADAY.name}\n\n\n"
+                f"↔️ <b>Spread : </b> {spread_icon} {spread_atr_ratio}%\n\n\n"
+                f"⚠️ Risk : {risk_per_share} pips\n\n"
+                f"🎯 Target : {round(risk_per_share * INTRADAY_M5_TARGET_MULTIPLIER, 1)} pips\n"
             )
 
             send_telegram_alert(message)
@@ -184,39 +184,17 @@ def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:
     log("info", "Screener completed.")
 
 
-def calculate_position(df):
+def get_risk_per_share(breakout_atr):
     """
-    Calculates position size using:
-    - 1% risk of real trading capital
-    - 5x leverage for buying power
     """
+    return round(breakout_atr * ATR_RISK_MULTIPLIER, 1)
 
-    risk_per_share = df["atr"].iloc[BREAKOUT_CANDLE_IDX] * ATR_RISK_MULTIPLIER
 
-    if risk_per_share <= 0:
-        return None
-
-    entry_price = df["high"].iloc[BREAKOUT_CANDLE_IDX]
-
-    # REAL risk (based on equity)
-    risk_amount = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
-
-    # Buying power (equity × leverage)
-    buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
-
-    # Risk-based qty
-    risk_based_qty = risk_amount / risk_per_share
-
-    # Capital-based qty (using leverage)
-    capital_based_qty = buying_power / entry_price
-
-    tradable_qty = min(risk_based_qty, capital_based_qty)
-
-    # Quantity is rounded to the nearest 5 for convenience.
-    if tradable_qty > 5:
-        tradable_qty = round(tradable_qty / 5.0) * 5
-
-    return {
-        "qty": tradable_qty,
-        "risk_per_share": round(risk_per_share, 1),
-    }
+def get_spread_atr_ratio(symbol, atr):
+    if atr == 0:
+        return 0
+    bid, ask = get_bid_ask(symbol)
+    if bid == 0 or ask == 0:
+        return 0
+    spread = ask - bid
+    return round((spread * 100) / atr, 1)

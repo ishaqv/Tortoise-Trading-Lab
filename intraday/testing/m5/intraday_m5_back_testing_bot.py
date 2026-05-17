@@ -109,6 +109,27 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
         return False
 
 
+def compute_quantity(entry_price, risk_per_share):
+    # Buying power (equity × leverage)
+    buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
+
+    # REAL risk (based on equity)
+    risk_amount = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
+
+    # Risk-based qty
+    risk_based_qty = risk_amount / risk_per_share
+
+    # Capital-based qty (using leverage)
+    capital_based_qty = buying_power / entry_price
+
+    tradable_qty = min(risk_based_qty, capital_based_qty)
+
+    # Quantity is rounded to the nearest 5 for convenience.
+    if tradable_qty > 5:
+        tradable_qty = round(tradable_qty / 5.0) * 5
+    return tradable_qty
+
+
 def process_symbol(
         symbol,
         instrument_token,
@@ -268,7 +289,7 @@ def process_symbol(
                 if risk <= 0:
                     continue
 
-                qty = result["Qty"]
+                qty = compute_quantity(entry_price, risk)
 
                 # ==========================================================
                 # STATIC EXIT LEVELS
