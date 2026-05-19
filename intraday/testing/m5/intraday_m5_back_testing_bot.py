@@ -138,7 +138,7 @@ def process_symbol(
         final_target_r=10,
         atr_entry_buffer=0.1
 ):
-    ENTRY_LOOKAHEAD_CANDLES = 5
+    ENTRY_LOOKAHEAD_CANDLES = 10
 
     initialize_logger(
         TradeType.INTRADAY,

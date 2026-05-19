@@ -38,7 +38,7 @@ def is_strong_breakout_candle(breakout_candle,
 
 
 def is_explosive_breakout_volume(breakout_candle,
-                                 min_multiplier=15):
+                                 min_multiplier=17):
     """
     breakout_volume should exceed 2 standard deviations above the mean.
     When you see a volume bar above mean + 2σ, it usually signals institutional activity, breakout force

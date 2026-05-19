@@ -291,58 +291,58 @@ Choose the strategy that best fits your personality, risk tolerance, and trading
 
 ```Capital = 5L, Backtest Duration = 3 years```
 
-### Fixed target = 3.25R
+### Fixed target = 3.5R
 
 | Category              | Metric              | Value        |
 |-----------------------|---------------------|--------------|
-| **Trade Stats**       | Total Trades        | 776          |
-|                       | Win Rate            | 43.3%        |
-|                       | Avg Win             | +3.25 R      |
+| **Trade Stats**       | Total Trades        | 663          |
+|                       | Win Rate            | 43.4%        |
+|                       | Avg Win             | +3.5 R       |
 |                       | Avg Loss            | -1.0 R       |
-|                       | Win/Loss Ratio      | 3.25         |
-|                       | Expectancy          | **+0.9 R**   |
-|                       | Profit Factor       | 2.4          |
+|                       | Win/Loss Ratio      | 3.5          |
+|                       | Expectancy          | **+1.0 R**   |
+|                       | Profit Factor       | 2.6          |
 |                       | Sharpe (R)          | 0.4          |
-|                       | Total Return        | 661.1 R      |
-|                       | Total PnL           | ₹39 L        |
+|                       | Total Return        | 631.1 R      |
+|                       | Total PnL           | ₹37 L        |
 |                       | CAGR                | 90.5 %       |
-|                       | Calmar Ratio        | 11.1         |
+|                       | Calmar Ratio        | 16.7         |
 | **Risk**              | Max Drawdown        | -10 R        |
-|                       | Max Drawdown (%)    | -8.2%        |
+|                       | Max Drawdown (%)    | -5.3%        |
 |                       | Max Losing Streak   | 10 trades    |
-| **Execution Quality** | Avg MFE (Captured)  | +3.6 R       |
+| **Execution Quality** | Avg MFE (Captured)  | +3.7 R       |
 |                       | Avg MFE (Available) | +10.7 R      |
-|                       | Capture Efficiency  | 48.5 %       |
-|                       | Avg MAE             | -2.1 R       |
+|                       | Capture Efficiency  | 49.6 %       |
+|                       | Avg MAE             | -2.0 R       |
 |                       | MAE > 0.5R          | 67.4% trades |
-|                       | Avg Trade Duration  | 8.7 min      |
+|                       | Avg Trade Duration  | 8.6 min      |
 
 ---
 
-### Dynaic Target - 50% at 3.25R and 50% at 10R
+### Dynaic Target - 50% at 3.5R and 50% at 10R
 
 | Category              | Metric              | Value        |
 |-----------------------|---------------------|--------------|
-| **Trade Stats**       | Total Trades        | 776          |
-|                       | Win Rate            | 43.7%        |
-|                       | Avg Win             | +3.8 R       |
+| **Trade Stats**       | Total Trades        | 663          |
+|                       | Win Rate            | 43.4%        |
+|                       | Avg Win             | +4.0 R       |
 |                       | Avg Loss            | -1.0 R       |
-|                       | Win/Loss Ratio      | 3.8          |
-|                       | Expectancy          | **+1.1 R**   |
-|                       | Profit Factor       | 2.9          |
+|                       | Win/Loss Ratio      | 4.0          |
+|                       | Expectancy          | **+1.2 R**   |
+|                       | Profit Factor       | 3.0          |
 |                       | Sharpe (R)          | 0.4          |
-|                       | Total Return        | 860 R        |
-|                       | Total PnL           | ₹51.65L      |
-|                       | CAGR                | 105.2 %      |
-|                       | Calmar Ratio        | 14.2         |
+|                       | Total Return        | 776 R        |
+|                       | Total PnL           | ₹46.5L       |
+|                       | CAGR                | 99.4 %       |
+|                       | Calmar Ratio        | 18.4         |
 | **Risk**              | Max Drawdown        | -10 R        |
-|                       | Max Drawdown (%)    | -7.2%        |
+|                       | Max Drawdown (%)    | -5.4%        |
 |                       | Max Losing Streak   | 10 trades    |
-| **Execution Quality** | Avg MFE (Captured)  | +4.5 R       |
+| **Execution Quality** | Avg MFE (Captured)  | +4.6 R       |
 |                       | Avg MFE (Available) | +10.7 R      |
-|                       | Capture Efficiency  | 54 %         |
-|                       | Avg MAE             | -2.3 R       |
-|                       | MAE > 0.5R          | 75.4% trades |
+|                       | Capture Efficiency  | 55 %         |
+|                       | Avg MAE             | -2.2 R       |
+|                       | MAE > 0.5R          | 74.8% trades |
 |                       | Avg Trade Duration  | 14 min       |
 
 > **Disclaimer:** Backtesting assumes perfect trade execution, ideal fills, and zero slippage. It does not account for
