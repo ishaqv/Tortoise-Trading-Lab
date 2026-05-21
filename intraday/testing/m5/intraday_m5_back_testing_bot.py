@@ -149,7 +149,7 @@ def process_symbol(
     file_path = get_file_path(symbol)
 
     if not os.path.isfile(file_path) or os.path.getsize(file_path) == 0:
-        fetch_back_testing_data(symbol, instrument_token, 2023, 2026)
+        fetch_back_testing_data(symbol, instrument_token, 2022, 2026)
 
     df = pd.read_csv(file_path)
 

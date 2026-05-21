@@ -23,13 +23,13 @@ def is_liquid_breakout(breakout_candle):
     if breakout_value <= 0:
         return False
 
-    effective_capital = (
+    buying_power = (
             TRADING_CAPITAL *
             INTRADAY_LEVERAGE_MULTIPLIER
     )
 
     participation_rate = (
-            effective_capital / breakout_value
+            buying_power / breakout_value
     )
 
     return participation_rate <= MAX_BREAKOUT_PARTICIPATION

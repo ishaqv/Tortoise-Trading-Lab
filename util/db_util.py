@@ -472,6 +472,7 @@ def fetch_and_filter_liquid_symbols(adv_days=20):
         log("info", (
             f"ADV filter | capital=₹{TRADING_CAPITAL:,.0f} | "
             f"min_adv=₹{min_adv:,.0f} | "
+            f"total_symbols={len(symbol_map)} | "
             f"passed={len(symbols)} symbols"
         ))
 
