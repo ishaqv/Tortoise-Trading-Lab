@@ -12,6 +12,10 @@ from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 # ── CONFIG ────────────────────────────────────────────────
 MIN_PCT_CHANGE = 2.0
 MAX_PCT_CHANGE = 6.0
+
+MIN_GAP_UP = 0.0
+MAX_GAP_UP = 3.0
+
 MAX_PARTICIPATION_RATE = 2.0
 
 # ── FILE ──────────────────────────────────────────────────
@@ -32,6 +36,9 @@ def main():
     # CALCULATIONS
     # =========================
 
+    # Gap-up from previous close
+    df["gap_up_%"] = (((df["Open"] - df["Prev. Close"]) / df["Prev. Close"]) * 100).round(1)
+
     # % price move from open
     df["price_change_%"] = (((df["LTP"] - df["Open"]) / df["Open"]) * 100).round(1)
 
@@ -44,6 +51,10 @@ def main():
     filtered = df[
         (df["price_change_%"] >= MIN_PCT_CHANGE) &
         (df["price_change_%"] <= MAX_PCT_CHANGE) &
+
+        (df["gap_up_%"] >= MIN_GAP_UP) &
+        (df["gap_up_%"] <= MAX_GAP_UP) &
+
         (df["participation_rate"] <= MAX_PARTICIPATION_RATE)
         ]
 
@@ -57,7 +68,12 @@ def main():
 
         print(
             filtered[
-                ["Symbol", "price_change_%", "participation_rate"]
+                [
+                    "Symbol",
+                    "gap_up_%",
+                    "price_change_%",
+                    "participation_rate"
+                ]
             ]
             .sort_values(by="participation_rate", ascending=True)
             .to_string(index=False)
