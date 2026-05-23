@@ -4,6 +4,7 @@ from datetime import date
 import pandas as pd
 from ta.volatility import AverageTrueRange
 
+from intraday.scanner.m5.early_momentum_breakout_scanner import is_early_momentum_breakout_detected
 from intraday.scanner.m5.volume_explosion_long_breakout_scanner import is_volume_explosion_long_breakout_detected
 from util.entry_type import EntryType
 from util.global_variables import *
@@ -109,6 +110,12 @@ def analyze_stock_for_setup(symbol,
             # 1⃣ EVB LONG
             if is_volume_explosion_long_breakout_detected(breakout_candle):
                 setup_type = IntradaySetupType.EVB
+                entry_type = EntryType.LONG
+                is_breakout_detected = True
+
+            # 2 EMB LONG
+            elif is_early_momentum_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EMB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 

@@ -10,11 +10,13 @@ class IntradaySetupType(Enum):
             VWAP : Breakout confirmed by VWAP (Volume Weighted Average Price) Reclaim.
             CRB  : Breakout confirmed by price escaping from a compressed range.
             EVB  : Breakout confirmed by sudden, massive volume expansion relative to recent average.
+            EMB  : Breakout confirmed by early price movement.
         """
     ORB = auto()
     VWAP = auto()
     CRB = auto()  # Compressed Range Breakout
     EVB = auto()  # Explosive Volume Breakout
+    EMB = auto()  # Early Momentum Breakout
 
 
 class SwingSetupType(Enum):
