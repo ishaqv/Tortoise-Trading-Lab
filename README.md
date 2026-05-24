@@ -118,8 +118,7 @@ Volume ≥ 15x average volume(SMA 20 volume)
 
 ### 🔹 Setup 2 - Early Momentum (Top Gainers)
 
-> **Note:** This is a complementary strategy. It cannot be backtested reliably and should be evaluated through live
-> market observation only.
+> **Note:** This is a complementary strategy.
 
 #### Overview
 
@@ -137,28 +136,18 @@ opening volatility settles.
 1. Open the NSE Top Gainers page:
    [https://www.nseindia.com/market-data/top-gainers-losers](https://www.nseindia.com/market-data/top-gainers-losers)
 
-2. Choose an index:
+2. Choose an index:All Securities
 
-* **Preferred:** NIFTY or NIFTY NEXT 50
-* **Alternative:** All Securities
+3. Filtering logic:
 
-3. Sorting logic:
-
-* For **NIFTY / NIFTY NEXT 50**:
-
-    * Sort by **% Change (descending)**
-    * Select the **top 2–3 stocks**
-    * (Liquidity filter is not required)
-* For **All Securities**:
-
-    * First sort by **Traded Value (descending)**
-    * Then manually identify stocks with highest **% Change**
-    * Select the **top 2–3 stocks**
-    * *(NSE does not support multi-column sorting)*
+* Sort by **traded value(price * volume)** in DESC
+* Filter by **price change %** (2-6%)
+* Select the **top 2–3 stocks**
 
 4. Optional:
 
-* Download the CSV file and perform sorting locally for better control.
+* Download the CSV file and perform filtering locally by
+  runnning [top_gainers_scanner.py](intraday/scanner/m5/top_gainers_scanner.py).
 
 #### Selection Filters
 
@@ -174,6 +163,22 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 
 ### Disclaimer: No setup works forever. Markets evolve, and setups evolve with them. If you fail to adapt, your edge will gradually disappear. ###
 
+The core mindset shift — treat every setup like a product with a lifecycle. It has a launch phase (edge is strong,
+market hasn't adapted), a maturity phase (edge stabilizes, you scale it), and a decay phase (edge erodes, you manage it
+down). Most traders only notice they're in decay phase 6 months after it started because they're looking at cumulative
+PnL which masks it.
+
+#### What actually helps:
+
+Rolling expectancy windows — don't just track yearly stats. Run a 20-trade and 50-trade rolling expectancy for each
+setup. The moment setup 20-trade rolling expectancy started dipping below its 50-trade average consistently, that was
+the early warning.
+
+#### Always have a setup in observation mode
+
+New setup discovery should be a continuous background process, not a scramble triggered by breakdown.
+At any point, maintain at least one setup in observation mode — paper tracking or minimal live size — so that by the
+time a primary setup deteriorates, you already have 3–6 months of live data behind the candidate.
 ---
 
 ## 🧮 Position Size Calculator
@@ -247,10 +252,10 @@ High** via Google Finance and use it as the entry price.
 
 ## 📈 Target Strategy
 
-## 📈 Strategy 1 — Fixed Exit at 3.25R
+## 📈 Strategy 1 — Fixed Exit at 3R
 
-* Target: Entry + 3.25R
-* At 3.25R → Sell 100% of the position
+* Target: Entry + 3R
+* At 3R → Sell 100% of the position
 * Best used when the trend lacks strong continuation momentum
 * Simple and easy to execute with minimal supervision
 * Order Type: Use a Limit SELL order
@@ -259,8 +264,8 @@ High** via Google Finance and use it as the entry price.
 
 ## 📈 Strategy 2 — Partial Exit + Dynamic Trailing
 
-* Primary Target (T1): Entry + 3.25R
-* At 3.25R → Sell 50% of the position
+* Primary Target (T1): Entry + 3R
+* At 3R → Sell 50% of the position
 * Move the SL to breakeven after partial profit booking
 * Trail the remaining position below each new swing low to capture extended moves
 * Final Target (T2): Exit when T2 is reached, the trailing SL is hit, or the move shows signs of exhaustion.
@@ -293,57 +298,57 @@ Choose the strategy that best fits your personality, risk tolerance, and trading
 
 ### Fixed target = 3.5R
 
-| Category              | Metric              | Value        |
-|-----------------------|---------------------|--------------|
-| **Trade Stats**       | Total Trades        | 663          |
-|                       | Win Rate            | 43.4%        |
-|                       | Avg Win             | +3.5 R       |
-|                       | Avg Loss            | -1.0 R       |
-|                       | Win/Loss Ratio      | 3.5          |
-|                       | Expectancy          | **+1.0 R**   |
-|                       | Profit Factor       | 2.6          |
-|                       | Sharpe (R)          | 0.4          |
-|                       | Total Return        | 631.1 R      |
-|                       | Total PnL           | ₹37 L        |
-|                       | CAGR                | 90.5 %       |
-|                       | Calmar Ratio        | 16.7         |
-| **Risk**              | Max Drawdown        | -10 R        |
-|                       | Max Drawdown (%)    | -5.3%        |
-|                       | Max Losing Streak   | 10 trades    |
-| **Execution Quality** | Avg MFE (Captured)  | +3.7 R       |
-|                       | Avg MFE (Available) | +10.7 R      |
-|                       | Capture Efficiency  | 49.6 %       |
-|                       | Avg MAE             | -2.0 R       |
-|                       | MAE > 0.5R          | 67.4% trades |
-|                       | Avg Trade Duration  | 8.6 min      |
+| Category              | Metric              | Value      |
+|-----------------------|---------------------|------------|
+| **Trade Stats**       | Total Trades        | 673        |
+|                       | Win Rate            | 42%        |
+|                       | Avg Win             | +3.5R      |
+|                       | Avg Loss            | -1.0 R     |
+|                       | Win/Loss Ratio      | 3.5        |
+|                       | Expectancy          | **+0.9 R** |
+|                       | Profit Factor       | 2.5        |
+|                       | Sharpe (R)          | 0.4        |
+|                       | Total Return        | 584 R      |
+|                       | Total PnL           | ₹38 L      |
+|                       | CAGR                | 64 %       |
+|                       | Calmar Ratio        | 6.0        |
+| **Risk**              | Max Drawdown        | -10 R      |
+|                       | Max Drawdown (%)    | -10.6%     |
+|                       | Max Losing Streak   | 10 trades  |
+| **Execution Quality** | Avg MFE (Captured)  | +3.1 R     |
+|                       | Avg MFE (Available) | +9.5 R     |
+|                       | Capture Efficiency  | 47.4 %     |
+|                       | Avg MAE             | -2.0 R     |
+|                       | MAE > 0.5R          | 69% trades |
+|                       | Avg Trade Duration  | 9.3 min    |
 
 ---
 
 ### Dynaic Target - 50% at 3.5R and 50% at 10R
 
-| Category              | Metric              | Value        |
-|-----------------------|---------------------|--------------|
-| **Trade Stats**       | Total Trades        | 663          |
-|                       | Win Rate            | 43.4%        |
-|                       | Avg Win             | +4.0 R       |
-|                       | Avg Loss            | -1.0 R       |
-|                       | Win/Loss Ratio      | 4.0          |
-|                       | Expectancy          | **+1.2 R**   |
-|                       | Profit Factor       | 3.0          |
-|                       | Sharpe (R)          | 0.4          |
-|                       | Total Return        | 776 R        |
-|                       | Total PnL           | ₹46.5L       |
-|                       | CAGR                | 99.4 %       |
-|                       | Calmar Ratio        | 18.4         |
-| **Risk**              | Max Drawdown        | -10 R        |
-|                       | Max Drawdown (%)    | -5.4%        |
-|                       | Max Losing Streak   | 10 trades    |
-| **Execution Quality** | Avg MFE (Captured)  | +4.6 R       |
-|                       | Avg MFE (Available) | +10.7 R      |
-|                       | Capture Efficiency  | 55 %         |
-|                       | Avg MAE             | -2.2 R       |
-|                       | MAE > 0.5R          | 74.8% trades |
-|                       | Avg Trade Duration  | 14 min       |
+| Category              | Metric              | Value      |
+|-----------------------|---------------------|------------|
+| **Trade Stats**       | Total Trades        | 663        |
+|                       | Win Rate            | 42%        |
+|                       | Avg Win             | +3.8 R     |
+|                       | Avg Loss            | -1.0 R     |
+|                       | Win/Loss Ratio      | 3.8        |
+|                       | Expectancy          | **+1.0 R** |
+|                       | Profit Factor       | 2.8        |
+|                       | Sharpe (R)          | 0.4        |
+|                       | Total Return        | 670 R      |
+|                       | Total PnL           | ₹44.5L     |
+|                       | CAGR                | 69 %       |
+|                       | Calmar Ratio        | 6.3        |
+| **Risk**              | Max Drawdown        | -10 R      |
+|                       | Max Drawdown (%)    | -11%       |
+|                       | Max Losing Streak   | 10 trades  |
+| **Execution Quality** | Avg MFE (Captured)  | +4R        |
+|                       | Avg MFE (Available) | +9.5 R     |
+|                       | Capture Efficiency  | 53 %       |
+|                       | Avg MAE             | -2.2 R     |
+|                       | MAE > 0.5R          | 76% trades |
+|                       | Avg Trade Duration  | 15 min     |
 
 > **Disclaimer:** Backtesting assumes perfect trade execution, ideal fills, and zero slippage. It does not account for
 > human errors, emotional decisions, execution delays, or real market conditions. Therefore, backtest results should not

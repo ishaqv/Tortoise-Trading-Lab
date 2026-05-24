@@ -1079,7 +1079,7 @@ def print_r_distribution(df):
     print(f"  [CSV] r_distribution.csv saved.")
 
 
-def print_rolling_stats(df, window=200):
+def print_rolling_stats(df, window=20):
     if len(df) < window:
         print("\nNot enough trades for rolling analysis.")
         return
