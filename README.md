@@ -175,7 +175,6 @@ setup. The moment setup 20-trade rolling expectancy started dipping below its 50
 the early warning.
 
 #### Always have a setup in observation mode
-
 New setup discovery should be a continuous background process, not a scramble triggered by breakdown.
 At any point, maintain at least one setup in observation mode — paper tracking or minimal live size — so that by the
 time a primary setup deteriorates, you already have 3–6 months of live data behind the candidate.
