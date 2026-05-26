@@ -149,6 +149,8 @@ opening volatility settles.
 * Download the CSV file and perform filtering locally by
   runnning [top_gainers_scanner.py](intraday/scanner/m5/top_gainers_scanner.py).
 
+> Alternatively, select an index (**NIFTY** or **NIFTY NEXT 50**) and apply the filters manually.
+
 #### Selection Filters
 
 * Avoid stocks with **large gap-ups**

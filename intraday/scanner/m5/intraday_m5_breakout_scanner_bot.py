@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
+import numpy as np
 import pandas as pd
 from ta.volatility import AverageTrueRange
 
@@ -132,16 +133,17 @@ def analyze_stock_for_setup(symbol,
                     'Risk': risk_per_share
                 }
 
+            if not is_spread_acceptable(symbol, breakout_atr):
+                log("warning", "Breakout rejected — spread too wide")
+                return None
+
             entry_type_icon = "🟢" if entry_type == EntryType.LONG else "🔴"
-            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
-            spread_icon = "☠️" if spread_atr_ratio > 10 or spread_atr_ratio == 0 else "✅"
 
             message = (
                 f"{entry_type_icon} <b>{entry_type.name} SETUP DETECTED</b>\n\n\n"
                 f"📌 <b>Symbol : </b> {symbol}\n\n"
                 f"🧠 <b>Setup : </b> {setup_type.name}\n\n"
                 f"⚡ <b>Trade : </b> {TradeType.INTRADAY.name}\n\n\n"
-                f"↔️ <b>Spread : </b> {spread_icon} {spread_atr_ratio}%\n\n\n"
                 f"⚠️ Risk : {risk_per_share} pips\n\n"
                 f"🎯 Target : {round(risk_per_share * INTRADAY_M5_TARGET_MULTIPLIER, 1)} pips\n"
             )
@@ -197,11 +199,38 @@ def get_risk_per_share(breakout_atr):
     return round(breakout_atr * ATR_RISK_MULTIPLIER, 1)
 
 
-def get_spread_atr_ratio(symbol, atr):
-    if atr == 0:
-        return 0
-    bid, ask = get_bid_ask(symbol)
-    if bid == 0 or ask == 0:
-        return 0
-    spread = ask - bid
-    return round((spread * 100) / atr, 1)
+def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
+    """
+    Stable spread/ATR ratio using median spread sampling.
+    """
+    if atr <= 0:
+        return None
+
+    spreads = []
+
+    for _ in range(samples):
+        bid, ask = get_bid_ask(symbol)
+
+        if 0 < bid <= ask and ask > 0:
+            spreads.append(ask - bid)
+
+        time.sleep(delay)
+
+    if not spreads:
+        return None
+
+    median_spread = np.median(spreads)
+
+    return round(median_spread / atr, 4)
+
+
+def is_spread_acceptable(symbol, atr):
+    """
+    Returns True if the spread/ATR ratio is within acceptable limits.
+    """
+    ratio = get_spread_atr_ratio(symbol, atr)
+
+    if ratio is None:
+        return False  # Reject if spread data unavailable
+
+    return ratio <= NSE_MAX_SPREAD_ATR_RATIO
