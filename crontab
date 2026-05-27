@@ -1,11 +1,11 @@
 # Warm-up run to fetch and cache the Kite access token and symbol instrument_token
-5 9 * * 1-5 flock /tmp/m5_warmup.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_warmup.py'
+15 9 * * 1-5 flock /tmp/m5_warmup.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_warmup.py'
 
 # Runs EVB scanner
 20 9 * * 1-5 flock /tmp/m5_scan.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_scan.py'
 
 #Runs 5-min candle backfill at 3.35PM & 3.45PM (second run is a fallback if first run fails for some reason)
-35,45 15 * * 1-5 flock /tmp/m5_backfill.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_backfill.py'
+35 15 * * 1-5 flock /tmp/m5_backfill.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_backfill.py'
 
 #Runs daily candle backfill at 3.50PM (it is required to find top gainers for the day)
-50 15 * * 1-5 flock /tmp/daily_backfill.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/swing_day_backfill.py'
+40 15 * * 1-5 flock /tmp/daily_backfill.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/swing_day_backfill.py'

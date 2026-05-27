@@ -3,7 +3,6 @@ Filters NSE Top gainers CSV and prints potential LONG candidate symbols.
 """
 
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 
@@ -21,7 +20,7 @@ MAX_PARTICIPATION_RATE = 2.0
 # ── FILE ──────────────────────────────────────────────────
 
 date_str = datetime.now().strftime("%d-%b-%Y")
-filename = Path(__file__).resolve().parents[3] / f"T20-GL-gainers-allSec-{date_str}.csv"
+filename = f"T20-GL-gainers-allSec-{date_str}.csv"
 
 # ── LIQUIDITY THRESHOLD ───────────────────────────────────
 

@@ -21,7 +21,7 @@ def get_kite() -> KiteConnect:
     return kite
 
 
-def init_kite_session(max_wait=600, retry_interval=30):
+def init_kite_session(max_wait=300, retry_interval=30):
     global kite
 
     # 🔒 Ensure only ONE thread can run this at a time
@@ -66,7 +66,7 @@ def init_kite_session(max_wait=600, retry_interval=30):
 
                     send_telegram_alert(message)
                     alert_sent = True
-                    time.sleep(120)
+                    time.sleep(60)
                     continue
 
                 time.sleep(retry_interval)
