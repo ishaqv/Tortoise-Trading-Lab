@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
+from time import sleep
 
 import numpy as np
 import pandas as pd
@@ -214,7 +215,7 @@ def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
         if 0 < bid <= ask and ask > 0:
             spreads.append(ask - bid)
 
-        time.sleep(delay)
+        sleep(delay)
 
     if not spreads:
         return None
