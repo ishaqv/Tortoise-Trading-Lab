@@ -23,7 +23,7 @@ Where:
 
 Track all setup statistics, expectancy, drawdowns, and performance metrics here:
 
-[Expectancy Tracking Google Sheet](https://docs.google.com/spreadsheets/d/10WRBuktABYwAD0QQYfSim0K6ubuYza9dsZYush0jgZU/edit?usp=sharing&utm_source=chatgpt.com)
+[Expectancy Tracking Google Sheet](https://docs.google.com/spreadsheets/d/10WRBuktABYwAD0QQYfSim0K6ubuYza9dsZYush0jgZU/edit?usp=sharing)
 
 ---
 
