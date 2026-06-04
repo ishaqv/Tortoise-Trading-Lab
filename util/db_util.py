@@ -51,7 +51,6 @@ def initialize_db(table_name):
         Initializes the MySQL database by creating the `intraday_historical_data` table if it doesn't exist.
         The table stores intraday OHLCV data and is optimized with:
             - A unique constraint on (symbol, date) to prevent duplicates.
-            - An index on (symbol, date DESC) to speed up recent data queries.
     """
 
     conn = None
@@ -62,14 +61,13 @@ def initialize_db(table_name):
                 CREATE TABLE IF NOT EXISTS `{table_name}` (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     symbol VARCHAR(10) NOT NULL,
-                    date DATETIME NOT NULL,
+                    trade_date DATETIME NOT NULL,
                     open DECIMAL(15, 4),
                     high DECIMAL(15, 4),
                     low DECIMAL(15, 4),
                     close DECIMAL(15, 4),
                     volume BIGINT,
-                    UNIQUE KEY unique_symbol_date (symbol, date),
-                    INDEX idx_symbol_date_desc (symbol, date DESC)                        
+                    UNIQUE KEY unique_symbol_date (symbol, trade_date)
                 ) ENGINE=InnoDB
             """
             cursor.execute(sql)
@@ -120,7 +118,7 @@ def purge_old_historical_data(table_name, symbols, candle_limit, optimize_after=
                 LEFT JOIN (
                     SELECT id FROM (
                         SELECT id,
-                               ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) AS rn
+                               ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) AS rn
                         FROM `{table_name}`
                         WHERE symbol IN ({format_strings})
                     ) ranked
@@ -160,7 +158,7 @@ def write_historical_data(table_name, buffer):
         conn = get_db_connection()
         with conn.cursor() as cursor:
             sql = f"""
-                INSERT INTO `{table_name}` (symbol, date, open, high, low, close, volume)
+                INSERT INTO `{table_name}` (symbol, trade_date, open, high, low, close, volume)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     open = VALUES(open),
@@ -276,7 +274,7 @@ def get_last_stored_ts_for_symbols(table_name, symbols) -> dict[str, date]:
             format_strings = ','.join(['%s'] * len(symbols))
 
             query = f"""
-                SELECT symbol, MAX(date) as latest_date
+                SELECT symbol, MAX(trade_date) as latest_date
                 FROM `{table_name}`
                 WHERE symbol IN ({format_strings})
                 GROUP BY symbol
@@ -312,7 +310,7 @@ def fetch_data(table_name, symbol, candle_limit):
             sql = f"""
                 SELECT * FROM `{table_name}`
                 WHERE symbol = %s
-                ORDER BY date DESC
+                ORDER BY trade_date DESC
                 LIMIT %s
             """
             cursor.execute(sql, (symbol, candle_limit))
@@ -336,7 +334,7 @@ def get_last_timestamp_map(symbol_df_map) -> dict[str, datetime]:
     """
 
     return {
-        symbol: df['date'].iloc[-1]  # iloc[-1] = latest candle since df is in ASC order
+        symbol: df['trade_date'].iloc[-1]  # iloc[-1] = latest candle since df is in ASC order
         for symbol, df in symbol_df_map.items()
     }
 
@@ -359,18 +357,18 @@ def get_historical_data_for_symbols(table_name, symbols) -> dict[str, pd.DataFra
                     SELECT 
                         id,
                         symbol,
-                        date,
+                        trade_date,
                         open,
                         high,
                         low,
                         close,
                         volume,
-                        ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY date DESC) as rn
+                        ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) as rn
                     FROM `{table_name}`
                     WHERE symbol IN ({format_strings})
                 ) t
                 WHERE rn <= %s
-                ORDER BY symbol, date DESC
+                ORDER BY symbol, trade_date DESC
             """
 
             cursor.execute(query, (*symbols, INTRADAY_M5_CANDLE_LIMIT))
@@ -380,13 +378,13 @@ def get_historical_data_for_symbols(table_name, symbols) -> dict[str, pd.DataFra
             return {}
 
         # Build DataFrame from raw rows; drop rn (SQL window function artifact, not needed beyond row limiting)
-        df = pd.DataFrame(rows, columns=['id', 'symbol', 'date', 'open', 'high', 'low', 'close', 'volume', 'rn'])
+        df = pd.DataFrame(rows, columns=['id', 'symbol', 'trade_date', 'open', 'high', 'low', 'close', 'volume', 'rn'])
         df = df.drop(columns=['rn'])
 
         # Coerce OHLCV columns to numeric — invalid/corrupt values become NaN
         numeric_cols = ['open', 'high', 'low', 'close', 'volume']
         df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
-        df['date'] = pd.to_datetime(df['date'])
+        df['trade_date'] = pd.to_datetime(df['trade_date'])
 
         # Reverse DESC → ASC to restore natural chronological order for time-series consumption.
         # ASC is the expected order for all downstream work — indicator calculations (RSI, EMA etc.),
@@ -428,7 +426,7 @@ def fetch_and_filter_liquid_symbols(adv_days=20):
                         volume,
                         ROW_NUMBER() OVER (
                             PARTITION BY symbol
-                            ORDER BY date DESC
+                            ORDER BY trade_date DESC
                         ) AS rn
                     FROM `{table_name}`
                 ) ranked
