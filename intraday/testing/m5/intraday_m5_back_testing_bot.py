@@ -95,12 +95,18 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
 
         # --- Build DataFrame ---
         df = pd.DataFrame(ohlcv_data_list)
-        df.drop_duplicates(subset=['date'], inplace=True)
-        df.sort_values('date', inplace=True)
+
+        df.rename(columns={'date': 'trade_date'}, inplace=True)
+
+        df.drop_duplicates(subset=['trade_date'], inplace=True)
+
+        df.sort_values('trade_date', inplace=True)
+
         df.reset_index(drop=True, inplace=True)
 
         file_path = get_file_path(symbol)
         df.to_csv(file_path, index=False)
+
         print(f"Saved {len(df)} candles for {symbol} to {file_path}")
         return True
 
@@ -155,8 +161,8 @@ def process_symbol(
 
     df.columns = df.columns.str.strip()
 
-    df['date'] = pd.to_datetime(df['date'])
-    df['day'] = df['date'].dt.date
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
+    df['day'] = df['trade_date'].dt.date
 
     add_technical_indicators(df)
 
@@ -169,8 +175,8 @@ def process_symbol(
         for window in BREAKOUT_WINDOWS:
 
             mask = (
-                    (df_day['date'].dt.time >= window["start"]) &
-                    (df_day['date'].dt.time <= window["end"])
+                    (df_day['trade_date'].dt.time >= window["start"]) &
+                    (df_day['trade_date'].dt.time <= window["end"])
             )
 
             candidate_idxs = df_day[mask].index.tolist()
@@ -218,12 +224,12 @@ def process_symbol(
 
                 breakout_candle = df_slice.iloc[-1]
 
-                breakout_time = breakout_candle['date']
+                breakout_time = breakout_candle['trade_date']
 
                 atr = breakout_candle["atr"]
 
                 df_after_breakout = df_trading_day_full[
-                    df_trading_day_full['date'] > breakout_time
+                    df_trading_day_full['trade_date'] > breakout_time
                     ]
 
                 if df_after_breakout.empty:

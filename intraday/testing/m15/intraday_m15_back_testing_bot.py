@@ -81,8 +81,8 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
 
         # --- Build DataFrame ---
         df = pd.DataFrame(ohlcv_data_list)
-        df.drop_duplicates(subset=['date'], inplace=True)
-        df.sort_values('date', inplace=True)
+        df.drop_duplicates(subset=['trade_date'], inplace=True)
+        df.sort_values('trade_date', inplace=True)
         df.reset_index(drop=True, inplace=True)
 
         file_path = get_file_path(symbol)
@@ -105,8 +105,8 @@ def process_symbol(symbol, instrument_token):
 
     df = pd.read_csv(file_path)
     df.columns = df.columns.str.strip()
-    df['date'] = pd.to_datetime(df['date'])
-    df['day'] = df['date'].dt.date
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
+    df['day'] = df['trade_date'].dt.date
 
     add_technical_indicators(df)
 
@@ -131,10 +131,10 @@ def process_symbol(symbol, instrument_token):
         df_trading_day_full = day_groups[trading_day]
 
         breakout_candle = df_slice.iloc[BREAKOUT_CANDLE_IDX]
-        breakout_time = breakout_candle['date']
+        breakout_time = breakout_candle['trade_date']
 
         df_after_breakout = df_trading_day_full[
-            df_trading_day_full['date'] > breakout_time
+            df_trading_day_full['trade_date'] > breakout_time
             ]
         if df_after_breakout.empty:
             continue

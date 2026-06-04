@@ -33,10 +33,10 @@ def is_liquid_stock(breakout_candle):
 
 
 def get_previous_day_data(df):
-    date_only = df['date'].dt.date
+    date_only = df['trade_date'].dt.date
     unique_dates = date_only.unique()
     yesterday = unique_dates[-2]
-    return df[df['date'].dt.date == yesterday].copy()
+    return df[df['trade_date'].dt.date == yesterday].copy()
 
 
 def calculate_gap(df_trading_day, df_previous_day):
@@ -86,7 +86,7 @@ def analyze_stock_for_setup(symbol,
 
     try:
         # Filter trading day's data
-        df_trading_day = df[df['date'].dt.date == trading_day].copy()
+        df_trading_day = df[df['trade_date'].dt.date == trading_day].copy()
 
         if len(df_trading_day) < 1:
             return None
@@ -104,7 +104,7 @@ def analyze_stock_for_setup(symbol,
             log("info", f"Skipping – huge gapup opening stock {symbol}")
             return None
 
-        breakout_candle_date_time = breakout_candle['date']
+        breakout_candle_date_time = breakout_candle['trade_date']
         breakout_time = breakout_candle_date_time.time()
 
         log("info", f"Evaluating {symbol} | breakout_candle: {breakout_candle_date_time}")
@@ -117,7 +117,7 @@ def analyze_stock_for_setup(symbol,
         # 1️⃣ VEB
         if not is_breakout_detected and breakout_time == EVB_SCAN_CANDLE_TIME:
             if is_volume_explosion_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EVB_M15
+                setup_type = IntradaySetupType.EVB
                 is_breakout_detected = True
 
         if is_breakout_detected:
@@ -197,14 +197,14 @@ def get_stock_dataframe(symbol, table_name):
 
     data = fetch_data(table_name, symbol, INTRADAY_M15_CANDLE_LIMIT)
 
-    df = pd.DataFrame(data, columns=['id', 'symbol', 'date', 'open', 'high', 'low', 'close', 'volume'])
+    df = pd.DataFrame(data, columns=['id', 'symbol', 'trade_date', 'open', 'high', 'low', 'close', 'volume'])
 
     # Clean & convert
     numeric_cols = ['open', 'high', 'low', 'close', 'volume']
     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
-    df['date'] = pd.to_datetime(df['date'])
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
 
-    df = df.dropna().sort_values('date', ascending=True)
+    df = df.dropna().sort_values('trade_date', ascending=True)
     return df
 
 

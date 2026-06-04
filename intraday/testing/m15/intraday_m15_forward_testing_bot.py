@@ -49,7 +49,7 @@ def get_stock_df_from_db(symbol, breakout_window):
     """
     table_name = get_table_name(f"m{INTRADAY_M15_CANDLE_SIZE}")
     df = get_stock_dataframe(symbol, table_name)
-    df = df[df['date'] <= breakout_window]
+    df = df[df['trade_date'] <= breakout_window]
     return df
 
 

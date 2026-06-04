@@ -96,12 +96,13 @@ def fetch_historical_data_for_symbol(symbol, instrument_token, last_stored_date,
             return []
 
         df = pd.DataFrame(historical_data)
-        df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d %H:%M:%S')
+        df.rename(columns={'date': 'trade_date'}, inplace=True)
+        df['trade_date'] = pd.to_datetime(df['trade_date']).dt.strftime('%Y-%m-%d %H:%M:%S')
 
         return [
             (
                 symbol,
-                str(row['date']),
+                str(row['trade_date']),
                 float(row['open']),
                 float(row['high']),
                 float(row['low']),
@@ -151,13 +152,14 @@ def fetch_historical_data_for_symbol_daily(symbol, instrument_token, last_stored
             return []
 
         df = pd.DataFrame(historical_data)
+        df.rename(columns={'date': 'trade_date'}, inplace=True)
         # Keep only the date part — time is meaningless for daily candles
-        df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+        df['trade_date'] = pd.to_datetime(df['trade_date']).dt.strftime('%Y-%m-%d')
 
         return [
             (
                 symbol,
-                str(row['date']),
+                str(row['trade_date']),
                 float(row['open']),
                 float(row['high']),
                 float(row['low']),
@@ -192,7 +194,8 @@ def append_latest_candle_data_from_kite(
 
         # Derive from_date from in-memory df — no DB call needed
         existing_df = symbol_df_map.get(symbol)
-        last_stored_date = existing_df['date'].iloc[-1] if existing_df is not None and not existing_df.empty else None
+        last_stored_date = existing_df['trade_date'].iloc[
+            -1] if existing_df is not None and not existing_df.empty else None
 
         # Fetch latest candle(s) from Kite
         records = fetch_historical_data_for_symbol(symbol, instrument_token, last_stored_date, interval, candle_size)
@@ -204,10 +207,10 @@ def append_latest_candle_data_from_kite(
         new_records.extend(records)
 
         # Build df from raw Kite records and align columns with existing df
-        new_df = pd.DataFrame(records, columns=['symbol', 'date', 'open', 'high', 'low', 'close', 'volume'])
+        new_df = pd.DataFrame(records, columns=['symbol', 'trade_date', 'open', 'high', 'low', 'close', 'volume'])
         numeric_cols = ['open', 'high', 'low', 'close', 'volume']
         new_df[numeric_cols] = new_df[numeric_cols].apply(pd.to_numeric, errors='coerce')
-        new_df['date'] = pd.to_datetime(new_df['date'])
+        new_df['trade_date'] = pd.to_datetime(new_df['trade_date'])
         new_df = new_df.dropna()
 
         # Append new candles to existing in-memory df

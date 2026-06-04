@@ -130,7 +130,7 @@ def get_previous_day_high(df):
     """
     """
 
-    date_only = df['date'].dt.date
+    date_only = df['trade_date'].dt.date
     unique_dates = date_only.unique()
 
     # === Previous N-day highs ===

@@ -39,7 +39,7 @@ def is_liquid_breakout(breakout_candle):
 
 
 def get_previous_day_data(df):
-    date_only = df['date'].dt.date
+    date_only = df['trade_date'].dt.date
     unique_dates = date_only.unique()
 
     if len(unique_dates) < 2:
@@ -81,7 +81,7 @@ def analyze_stock_for_setup(symbol,
     try:
         log("info", "--------------------------------")
         # Filter trading day's data
-        df_trading_day = df[df['date'].dt.date == trading_day].copy()
+        df_trading_day = df[df['trade_date'].dt.date == trading_day].copy()
 
         if len(df_trading_day) < 1:
             return None
@@ -98,7 +98,7 @@ def analyze_stock_for_setup(symbol,
             log("info", f"Skipping – huge opening gap detected in stock {symbol}")
             return None
 
-        breakout_candle_date_time = breakout_candle['date']
+        breakout_candle_date_time = breakout_candle['trade_date']
         breakout_time = breakout_candle_date_time.time()
 
         log("info", f"Evaluating {symbol} | breakout_candle: {breakout_candle_date_time}")

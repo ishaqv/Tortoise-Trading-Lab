@@ -59,8 +59,8 @@ def fetch_back_testing_data(symbol, instrument_token, period_days=3650):
         df = pd.DataFrame(ohlcv_data_list)
 
         # Dedupe and sort
-        df.drop_duplicates(subset=['date'], inplace=True)
-        df.sort_values('date', inplace=True)
+        df.drop_duplicates(subset=['trade_date'], inplace=True)
+        df.sort_values('trade_date', inplace=True)
         df.reset_index(drop=True, inplace=True)
 
         # Save to CSV
@@ -96,8 +96,8 @@ def process_symbol(symbol, instrument_token, holding_days=32):
 
     df = pd.read_csv(file_path)
     df.columns = df.columns.str.strip()
-    df['date'] = pd.to_datetime(df['date'])
-    df['day'] = df['date'].dt.date
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
+    df['day'] = df['trade_date'].dt.date
 
     add_technical_indicators(df)
 
@@ -116,7 +116,7 @@ def process_symbol(symbol, instrument_token, holding_days=32):
             continue
 
         # Future candles after breakout
-        df_future = df[df['date'] > df_slice.iloc[BREAKOUT_CANDLE_IDX]['date']]
+        df_future = df[df['trade_date'] > df_slice.iloc[BREAKOUT_CANDLE_IDX]['trade_date']]
         df_post_entry = df_future.iloc[:holding_days]
 
         if df_post_entry.empty:

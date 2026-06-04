@@ -61,7 +61,7 @@ def analyze_stock_for_setup(symbol,
 
         log("info", "--------------------------------")
         breakout_candle = df.iloc[BREAKOUT_CANDLE_IDX]
-        breakout_candle_date_time = breakout_candle['date']
+        breakout_candle_date_time = breakout_candle['trade_date']
 
         log("info", f"Evaluating {symbol} | breakout_candle: {breakout_candle_date_time}")
 
@@ -157,14 +157,14 @@ def get_stock_dataframe(symbol, table_name):
 
     data = fetch_data(table_name, symbol, SWING_CANDLE_LIMIT)
 
-    df = pd.DataFrame(data, columns=['id', 'symbol', 'date', 'open', 'high', 'low', 'close', 'volume'])
+    df = pd.DataFrame(data, columns=['id', 'symbol', 'trade_date', 'open', 'high', 'low', 'close', 'volume'])
 
     # Clean & convert
     numeric_cols = ['open', 'high', 'low', 'close', 'volume']
     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
-    df['date'] = pd.to_datetime(df['date'])
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
 
-    df = df.dropna().sort_values('date', ascending=True)
+    df = df.dropna().sort_values('trade_date', ascending=True)
     return df
 
 

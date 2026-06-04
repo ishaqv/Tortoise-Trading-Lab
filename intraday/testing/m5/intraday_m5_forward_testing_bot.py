@@ -51,14 +51,14 @@ def get_stock_dataframe(symbol, table_name):
 
     data = fetch_data(table_name, symbol, INTRADAY_M5_CANDLE_LIMIT)
 
-    df = pd.DataFrame(data, columns=['id', 'symbol', 'date', 'open', 'high', 'low', 'close', 'volume'])
+    df = pd.DataFrame(data, columns=['id', 'symbol', 'trade_date', 'open', 'high', 'low', 'close', 'volume'])
 
     # Clean & convert
     numeric_cols = ['open', 'high', 'low', 'close', 'volume']
     df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
-    df['date'] = pd.to_datetime(df['date'])
+    df['trade_date'] = pd.to_datetime(df['trade_date'])
 
-    df = df.dropna().sort_values('date', ascending=True)
+    df = df.dropna().sort_values('trade_date', ascending=True)
     return df
 
 
@@ -69,7 +69,7 @@ def get_stock_df_from_db(symbol, breakout_window):
     """
     table_name = get_table_name(f"m{INTRADAY_M5_CANDLE_SIZE}")
     df = get_stock_dataframe(symbol, table_name)
-    df = df[df['date'] <= breakout_window]
+    df = df[df['trade_date'] <= breakout_window]
     return df
 
 
