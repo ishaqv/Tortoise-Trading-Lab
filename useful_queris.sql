@@ -9,11 +9,11 @@ USE algotrading;
 WITH ranked_days AS (
     SELECT
         symbol,
-        date,
+        trade_date,
         close,
-        LAG(close) OVER (PARTITION BY symbol ORDER BY date) AS prev_close
+        LAG(close) OVER (PARTITION BY symbol ORDER BY trade_date) AS prev_close
     FROM d1_historical_data
-    WHERE date >= CURDATE() - INTERVAL 7 DAY  -- small window for efficiency
+    WHERE trade_date >= CURDATE() - INTERVAL 7 DAY  -- small window for efficiency
 ),
 latest AS (
     SELECT
@@ -22,7 +22,7 @@ latest AS (
         prev_close  AS close_yesterday,
         ROUND(((close - prev_close) / prev_close) * 100, 2) AS percent_change
     FROM ranked_days
-    WHERE DATE(date) = (SELECT MAX(DATE(date)) FROM d1_historical_data)
+    WHERE DATE(trade_date) = (SELECT MAX(DATE(trade_date)) FROM d1_historical_data)
 )
 SELECT
     symbol,
