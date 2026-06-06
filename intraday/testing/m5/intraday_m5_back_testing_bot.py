@@ -269,7 +269,7 @@ def process_symbol(
                     if row.low <= trigger_price <= row.high:
                         entry_price = trigger_price
 
-                        triggered_time = row.date
+                        triggered_time = row.trade_date
 
                         entry_index = (
                             df_trading_day_full.index.get_loc(
@@ -388,7 +388,7 @@ def process_symbol(
                     high = row.high
                     low = row.low
                     close = row.close
-                    dt = row.date
+                    dt = row.trade_date
 
                     # ------------------------------------------------------
                     # ACTIVATE PENDING TRAILING STOP
@@ -747,7 +747,7 @@ def process_symbol(
 
                     exit_price = final_close
 
-                    exit_time = last_row.date
+                    exit_time = last_row.trade_date
 
                     exit_index = last_row.name
 
