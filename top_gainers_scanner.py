@@ -15,7 +15,7 @@ MAX_PCT_CHANGE = 6.0
 MIN_GAP_UP = 0.0
 MAX_GAP_UP = 3.0
 
-MAX_PARTICIPATION_RATE = 2.0
+MAX_PARTICIPATION_RATE = 1.0
 
 # ── FILE ──────────────────────────────────────────────────
 

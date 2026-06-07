@@ -97,7 +97,7 @@ See [`crontab`](crontab) for the full cron schedule.
 
 ## ✅ Setup
 
-### 🔹 Setup 1 - Explosive Volume Breakout
+### 🔹 Setup 1 - Explosive Volume Breakout (EVB)
 
 * Stock opens with explosive volume compared to average
 
@@ -114,13 +114,31 @@ Volume ≥ 15x average volume(SMA 20 volume)
 
 ---
 
-### 🔹 Setup 2 - Early Momentum (Top Gainers)
+### 🔹 Setup 2 — Early Momentum Breakout (EMB)
+
+A stock exhibiting early momentum with tight liquidity conditions.
+
+#### 1. Strong Bullish Breakout Candle
+
+- Candle body spans at least 60% of the total candle range
+- Upper wick is less than 25% of the total range
+
+#### 2. Strong Participation
+
+- `MAX_PARTICIPATION_RATE` < 0.5
+- Price change between 2% and 6%
+
+> Participation rate refers to the ratio of your order size relative to the volume traded during the breakout candle.
+
+---
+
+### 🔹 Setup 3 - Top Gainers
 
 > **Note:** This is a complementary strategy.
 
 #### Overview
 
-This setup aims to capture early intraday momentum by focusing on the top gainers shortly after market open.
+This setup aims to capture early intraday momentum by focusing on the NSE top gainers shortly after market open.
 
 ![top_gainers_nse_entry.png](top_gainers_nse_entry.png)
 
