@@ -136,7 +136,9 @@ def analyze_stock_for_setup(symbol,
                 }
 
             if not is_spread_acceptable(symbol, breakout_atr):
-                log("warning", "Breakout rejected — spread too wide")
+                message = f"Breakout rejected for {symbol} — spread too wide"
+                log("warning", message)
+                send_telegram_alert(message)
                 return None
 
             entry_type_icon = "🟢" if entry_type == EntryType.LONG else "🔴"
