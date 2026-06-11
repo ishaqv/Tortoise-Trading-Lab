@@ -1,15 +1,17 @@
 import os
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from intraday.scanner.m15.intraday_m15_breakout_scanner_bot import add_technical_indicators, analyze_stock_for_setup
-from util.global_variables import INTRADAY_M15_CANDLE_SIZE, INTRADAY_M15_CANDLE_LIMIT, \
-    BREAKOUT_CANDLE_IDX, INTRADAY_M15_TARGET_MULTIPLIER, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
-    INTRADAY_LEVERAGE_MULTIPLIER
+from intraday.scanner.m15.intraday_m15_breakout_scanner_bot import analyze_stock_for_setup, add_technical_indicators
+from util.entry_type import EntryType
+from util.exit_model_util import ExitModel
+from util.global_variables import EVB_SCAN_CANDLE_TIME, TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER, \
+    MAX_RISK_PER_TRADE_PERCENT, INTRADAY_M15_TARGET_MULTIPLIER, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, \
+    INTRADAY_M15_CANDLE_LIMIT, INTRADAY_M15_CANDLE_SIZE
 from util.kite_util import get_kite
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
@@ -20,6 +22,15 @@ INTERVAL = "15minute"
 DAYS = 100  # Max allowed per Kite API
 DATA_FOLDER = f"data/{INTERVAL}"
 REPORT_FOLDER = "reports"
+
+# ─── Breakout windows ─────────────────────────────────────────────────────────
+BREAKOUT_WINDOWS = [
+    {
+        "name": "EVB",
+        "start": EVB_SCAN_CANDLE_TIME,
+        "end": EVB_SCAN_CANDLE_TIME
+    }
+]
 
 
 def get_file_path(symbol):
@@ -36,22 +47,26 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
       - Neither specified            → defaults to last 10 years
     """
     kite = get_kite()
-
+    to_day = datetime.today()
     # --- Resolve date range ---
     if from_year and to_year:
         start_date = datetime(from_year, 1, 1)
         end_date = datetime(to_year, 12, 31)
     elif num_years:
-        end_date = datetime.today()
+        end_date = to_day
         start_date = end_date - timedelta(days=365 * num_years)
     else:
-        end_date = datetime.today()
+        end_date = to_day
         start_date = end_date - timedelta(days=365 * 10)  # default: 10 years
 
-    print(f"Fetching data for {symbol} | Range: {start_date.date()} → {end_date.date()}")
-
     ohlcv_data_list = []
+
+    if end_date > to_day:
+        end_date = to_day
+
     to_date = end_date
+
+    print(f"Fetching data for {symbol} | Range: {start_date.date()} → {end_date.date()}")
 
     try:
         while to_date > start_date:
@@ -64,8 +79,7 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
                 instrument_token=instrument_token,
                 from_date=from_date,
                 to_date=to_date,
-                interval=INTERVAL,
-                continuous=False
+                interval=INTERVAL
             )
 
             if ohlcv_data:
@@ -81,12 +95,18 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
 
         # --- Build DataFrame ---
         df = pd.DataFrame(ohlcv_data_list)
+
+        df.rename(columns={'date': 'trade_date'}, inplace=True)
+
         df.drop_duplicates(subset=['trade_date'], inplace=True)
+
         df.sort_values('trade_date', inplace=True)
+
         df.reset_index(drop=True, inplace=True)
 
         file_path = get_file_path(symbol)
         df.to_csv(file_path, index=False)
+
         print(f"Saved {len(df)} candles for {symbol} to {file_path}")
         return True
 
@@ -95,193 +115,752 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
         return False
 
 
-def process_symbol(symbol, instrument_token):
-    ENTRY_LOOKAHEAD_CANDLES = 3
-    initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M15_CANDLE_SIZE}", log_to_console=True)
+def compute_quantity(entry_price, risk_per_share):
+    # Buying power (equity × leverage)
+    buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
+
+    # REAL risk (based on equity)
+    risk_amount = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
+
+    # Risk-based qty
+    risk_based_qty = risk_amount / risk_per_share
+
+    # Capital-based qty (using leverage)
+    capital_based_qty = buying_power / entry_price
+
+    tradable_qty = min(risk_based_qty, capital_based_qty)
+
+    # Quantity is rounded to the nearest 5 for convenience.
+    if tradable_qty > 5:
+        tradable_qty = round(tradable_qty / 5.0) * 5
+    return tradable_qty
+
+
+def process_symbol(
+        symbol,
+        instrument_token,
+        exit_model=ExitModel.STATIC,
+        partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
+        final_target_r=10,
+        atr_entry_buffer=0.1
+):
+    ENTRY_LOOKAHEAD_CANDLES = 5
+
+    initialize_logger(
+        TradeType.INTRADAY,
+        f"m{INTRADAY_M15_CANDLE_SIZE}",
+        log_to_console=True
+    )
 
     file_path = get_file_path(symbol)
+
     if not os.path.isfile(file_path) or os.path.getsize(file_path) == 0:
-        fetch_back_testing_data(symbol, instrument_token, 2023, 2026)
+        fetch_back_testing_data(symbol, instrument_token, 2022, 2026)
 
     df = pd.read_csv(file_path)
+
     df.columns = df.columns.str.strip()
+
     df['trade_date'] = pd.to_datetime(df['trade_date'])
     df['day'] = df['trade_date'].dt.date
 
     add_technical_indicators(df)
 
     results = []
+
     day_groups = {d: g for d, g in df.groupby('day')}
 
-    for idx in range(INTRADAY_M15_CANDLE_LIMIT, len(df)):
+    for trading_day, df_day in day_groups.items():
 
-        atr_value = df.at[idx, 'atr']
-        if pd.isna(atr_value) or atr_value == 0:
-            continue
+        for window in BREAKOUT_WINDOWS:
 
-        trading_day = df.at[idx, 'day']
-        df_slice = df.iloc[idx - INTRADAY_M15_CANDLE_LIMIT:idx + 1]
-
-        result = analyze_stock_for_setup(
-            symbol, df_slice, trading_day=trading_day, is_backtesting=True
-        )
-        if result is None:
-            continue
-
-        df_trading_day_full = day_groups[trading_day]
-
-        breakout_candle = df_slice.iloc[BREAKOUT_CANDLE_IDX]
-        breakout_time = breakout_candle['trade_date']
-
-        df_after_breakout = df_trading_day_full[
-            df_trading_day_full['trade_date'] > breakout_time
-            ]
-        if df_after_breakout.empty:
-            continue
-
-        confirmation_candle = df_after_breakout.iloc[0]
-        df_entry_window = df_after_breakout.iloc[1:1 + ENTRY_LOOKAHEAD_CANDLES]
-
-        atr = breakout_candle["atr"]
-
-        trigger_price = max(confirmation_candle["high"], breakout_candle["high"]) + 0.25 * atr
-
-        # =========================
-        # SL-M FILL LOGIC
-        # =========================
-
-        entry_filled = False
-        for row in df_entry_window.itertuples():
-            if row.low <= trigger_price <= row.high:  # price crossed trigger from below
-                entry_price = trigger_price
-                triggered_time = row.date
-                entry_index = df_trading_day_full.index.get_loc(row.Index)
-                entry_filled = True
-                break
-
-        if not entry_filled:
-            continue
-
-        df_post_entry = df_trading_day_full.iloc[entry_index + 1:]
-        if df_post_entry.empty:
-            continue
-
-        risk = result["Risk"]
-        if risk <= 0:
-            continue
-
-        qty = result["Qty"]
-
-        stop_loss = entry_price - risk
-        target = entry_price + INTRADAY_M15_TARGET_MULTIPLIER * risk
-
-        max_r_execution = 0
-        mae_r = 0
-
-        exit_price = None
-        exit_time = None
-        pnl_r = None
-        exit_index = None
-        trade_status = None
-
-        # =========================
-        # EXECUTION LOOP
-        # =========================
-
-        for row in df_post_entry.itertuples():
-
-            high = row.high
-            low = row.low
-            dt = row.date
-
-            # Update diagnostics first
-            max_r_execution = max(max_r_execution, (high - entry_price) / risk)
-            mae_r = min(mae_r, (low - entry_price) / risk)
-
-            # Conservative assumption:
-            # If both stop and target hit in same candle → STOP FIRST
-            if high >= target:
-                exit_price = target
-                pnl_r = INTRADAY_M15_TARGET_MULTIPLIER
-                trade_status = "Win"
-                exit_time = dt
-                exit_index = row.Index
-                break
-
-            if low <= stop_loss:
-                exit_price = stop_loss
-                pnl_r = -1
-                trade_status = "Loss"
-                exit_time = dt
-                exit_index = row.Index
-                break
-
-        # =========================
-        # EOD EXIT
-        # =========================
-
-        if trade_status is None:
-            last_row = df_post_entry.iloc[-1]
-            final_close = last_row.close
-            final_r = (final_close - entry_price) / risk
-
-            max_r_execution = max(
-                max_r_execution, (last_row.high - entry_price) / risk
-            )
-            mae_r = min(
-                mae_r, (last_row.low - entry_price) / risk
+            mask = (
+                    (df_day['trade_date'].dt.time >= window["start"]) &
+                    (df_day['trade_date'].dt.time <= window["end"])
             )
 
-            pnl_r = round(final_r, 4)
-            trade_status = "Win" if pnl_r > 0 else "Loss"
-            exit_price = final_close
-            exit_time = last_row.date
-            exit_index = last_row.name
+            candidate_idxs = df_day[mask].index.tolist()
 
-        # =========================
-        # FULL DAY MFE (DIAGNOSTIC ONLY)
-        # =========================
+            if not candidate_idxs:
+                continue
 
-        max_r_full_day = max_r_execution
-        df_after_exit = df_trading_day_full.loc[exit_index + 1:]
+            for breakout_idx in candidate_idxs:
 
-        if not df_after_exit.empty:
-            day_high = df_after_exit["high"].max()
-            max_r_full_day = max(
-                max_r_full_day,
-                (day_high - entry_price) / risk
-            )
+                breakout_pos = df.index.get_loc(breakout_idx)
 
-        # =========================
-        # DURATION
-        # =========================
+                slice_start = max(
+                    0,
+                    breakout_pos - (INTRADAY_M15_CANDLE_LIMIT - 1)
+                )
 
-        exit_pos = df_trading_day_full.index.get_loc(exit_index)
-        duration_minutes = (exit_time - triggered_time).total_seconds() / 60
-        duration_bars = max(0, exit_pos - entry_index)
+                df_slice = df.iloc[
+                    slice_start: breakout_pos + 1
+                ]
 
-        # =========================
-        # STORE RESULT
-        # =========================
+                if len(df_slice) < INTRADAY_M15_CANDLE_LIMIT:
+                    continue
 
-        result.update({
-            "Entry": round(entry_price, 1),
-            "Entry Time": triggered_time,
-            "Exit": round(exit_price, 1),
-            "Exit Time": exit_time,
-            "R": round(pnl_r, 2),
-            "MaxR_Execution": round(max_r_execution, 1),
-            "MaxR_FullDay": round(max_r_full_day, 1),
-            "MAE_R": round(mae_r, 1),
-            "Status": trade_status,
-            "Profit Amount": round(pnl_r * risk * qty, 2) if pnl_r > 0 else 0,
-            "Loss Amount": round(abs(pnl_r * risk * qty), 2) if pnl_r < 0 else 0,
-            "Duration_Minutes": round(duration_minutes),
-            "Duration_Bars": duration_bars,
-            "RiskPerShare": risk
-        })
+                atr_value = df.at[breakout_idx, 'atr']
 
-        results.append(result)
+                if pd.isna(atr_value) or atr_value == 0:
+                    continue
+
+                result = analyze_stock_for_setup(
+                    symbol,
+                    df_slice,
+                    trading_day=trading_day,
+                    is_backtesting=True
+                )
+
+                if result is None:
+                    continue
+
+                is_long = (
+                        result["Entry Type"] ==
+                        EntryType.LONG.name
+                )
+
+                df_trading_day_full = day_groups[trading_day]
+
+                breakout_candle = df_slice.iloc[-1]
+
+                breakout_time = breakout_candle['trade_date']
+
+                atr = breakout_candle["atr"]
+
+                df_after_breakout = df_trading_day_full[
+                    df_trading_day_full['trade_date'] > breakout_time
+                    ]
+
+                if df_after_breakout.empty:
+                    continue
+
+                confirmation_candle = df_after_breakout.iloc[0]
+
+                df_entry_window = df_after_breakout.iloc[
+                    1:1 + ENTRY_LOOKAHEAD_CANDLES
+                ]
+
+                # ==========================================================
+                # ENTRY TRIGGER
+                # ==========================================================
+
+                if is_long:
+
+                    trigger_price = (
+                            confirmation_candle["high"] +
+                            atr_entry_buffer * atr
+                    )
+
+                else:
+
+                    trigger_price = (
+                            min(
+                                confirmation_candle["low"],
+                                breakout_candle["low"]
+                            ) -
+                            atr_entry_buffer * atr
+                    )
+
+                entry_filled = False
+
+                for row in df_entry_window.itertuples():
+
+                    if row.low <= trigger_price <= row.high:
+                        entry_price = trigger_price
+
+                        triggered_time = row.trade_date
+
+                        entry_index = (
+                            df_trading_day_full.index.get_loc(
+                                row.Index
+                            )
+                        )
+
+                        entry_filled = True
+                        break
+
+                if not entry_filled:
+                    continue
+
+                df_post_entry = df_trading_day_full.iloc[
+                    entry_index + 1:
+                ]
+
+                if df_post_entry.empty:
+                    continue
+
+                risk = result["Risk"]
+
+                if risk <= 0:
+                    continue
+
+                qty = compute_quantity(entry_price, risk)
+
+                # ==========================================================
+                # STATIC EXIT LEVELS
+                # ==========================================================
+
+                if is_long:
+
+                    stop_loss = entry_price - risk
+
+                    static_target = (
+                            entry_price +
+                            INTRADAY_M15_TARGET_MULTIPLIER * risk
+                    )
+
+                else:
+
+                    stop_loss = entry_price + risk
+
+                    static_target = (
+                            entry_price -
+                            INTRADAY_M15_TARGET_MULTIPLIER * risk
+                    )
+
+                # ==========================================================
+                # DYNAMIC TARGETS
+                # ==========================================================
+
+                if is_long:
+
+                    partial_target = (
+                            entry_price +
+                            INTRADAY_M15_TARGET_MULTIPLIER * risk
+                    )
+
+                    final_target = (
+                            entry_price +
+                            final_target_r * risk
+                    )
+
+                else:
+
+                    partial_target = (
+                            entry_price -
+                            INTRADAY_M15_TARGET_MULTIPLIER * risk
+                    )
+
+                    final_target = (
+                            entry_price -
+                            final_target_r * risk
+                    )
+
+                # ==========================================================
+                # TRADE STATE
+                # ==========================================================
+
+                max_r_execution = 0
+                max_r_full_day = 0
+                mae_r = 0
+
+                exit_price = None
+                exit_time = None
+                exit_index = None
+
+                pnl_r = None
+                trade_status = None
+
+                # ==========================================================
+                # DYNAMIC STATE VARIABLES
+                # ==========================================================
+
+                partial_booked = False
+
+                booked_position = partial_exit_pct
+                remaining_position = 1 - partial_exit_pct
+
+                realized_r = 0
+
+                trailing_stop = stop_loss
+
+                # IMPORTANT:
+                # trailing stop becomes active NEXT candle only
+                pending_trailing_stop = None
+
+                # ==========================================================
+                # EXECUTION LOOP
+                # ==========================================================
+
+                for i, row in enumerate(df_post_entry.itertuples()):
+
+                    high = row.high
+                    low = row.low
+                    close = row.close
+                    dt = row.trade_date
+
+                    # ------------------------------------------------------
+                    # ACTIVATE PENDING TRAILING STOP
+                    # ------------------------------------------------------
+
+                    if pending_trailing_stop is not None:
+                        trailing_stop = pending_trailing_stop
+                        pending_trailing_stop = None
+
+                    # ------------------------------------------------------
+                    # UPDATE MFE / MAE
+                    # ------------------------------------------------------
+
+                    if is_long:
+
+                        max_r_execution = max(
+                            max_r_execution,
+                            (high - entry_price) / risk
+                        )
+
+                        mae_r = min(
+                            mae_r,
+                            (low - entry_price) / risk
+                        )
+
+                    else:
+
+                        max_r_execution = max(
+                            max_r_execution,
+                            (entry_price - low) / risk
+                        )
+
+                        mae_r = min(
+                            mae_r,
+                            (entry_price - high) / risk
+                        )
+
+                    # ======================================================
+                    # STATIC EXIT MODEL
+                    # ======================================================
+
+                    if exit_model == ExitModel.STATIC:
+
+                        if is_long:
+
+                            target_hit = (
+                                    high >= static_target
+                            )
+
+                            stop_hit = (
+                                    low <= stop_loss
+                            )
+
+                        else:
+
+                            target_hit = (
+                                    low <= static_target
+                            )
+
+                            stop_hit = (
+                                    high >= stop_loss
+                            )
+
+                        # TARGET FIRST PRIORITY
+
+                        if target_hit:
+
+                            exit_price = static_target
+
+                            pnl_r = (
+                                INTRADAY_M15_TARGET_MULTIPLIER
+                            )
+
+                            trade_status = "Win"
+
+                            exit_time = dt
+                            exit_index = row.Index
+
+                            break
+
+                        elif stop_hit:
+
+                            exit_price = stop_loss
+
+                            pnl_r = -1
+
+                            trade_status = "Loss"
+
+                            exit_time = dt
+                            exit_index = row.Index
+
+                            break
+
+                    # ======================================================
+                    # DYNAMIC EXIT MODEL
+                    # ======================================================
+
+                    elif exit_model == ExitModel.DYNAMIC:
+
+                        # --------------------------------------------------
+                        # BEFORE PARTIAL EXIT
+                        # --------------------------------------------------
+
+                        if not partial_booked:
+
+                            if is_long:
+
+                                partial_hit = (
+                                        high >= partial_target
+                                )
+
+                                stop_hit = (
+                                        low <= stop_loss
+                                )
+
+                            else:
+
+                                partial_hit = (
+                                        low <= partial_target
+                                )
+
+                                stop_hit = (
+                                        high >= stop_loss
+                                )
+
+                            # IMPORTANT:
+                            # PRIORITIZE PARTIAL FIRST
+
+                            if partial_hit:
+
+                                partial_booked = True
+
+                                realized_r += (
+                                        booked_position *
+                                        INTRADAY_M15_TARGET_MULTIPLIER
+                                )
+
+                                # Move to breakeven
+                                # ACTIVE NEXT CANDLE
+                                pending_trailing_stop = (
+                                    entry_price
+                                )
+
+                            elif stop_hit:
+
+                                exit_price = stop_loss
+
+                                pnl_r = -1
+
+                                trade_status = "Loss"
+
+                                exit_time = dt
+                                exit_index = row.Index
+
+                                break
+
+                        # --------------------------------------------------
+                        # AFTER PARTIAL EXIT
+                        # --------------------------------------------------
+
+                        else:
+
+                            # ----------------------------------------------
+                            # SWING TRAILING
+                            # ----------------------------------------------
+
+                            if i >= 2:
+
+                                prev_row = df_post_entry.iloc[i - 1]
+
+                                if is_long:
+
+                                    swing_low = prev_row["low"] - 0.1 * atr
+
+                                    new_stop = max(
+                                        trailing_stop,
+                                        swing_low
+                                    )
+
+                                else:
+
+                                    swing_high = prev_row["high"] + 0.1 * atr
+
+                                    new_stop = min(
+                                        trailing_stop,
+                                        swing_high
+                                    )
+
+                                # ACTIVE NEXT CANDLE ONLY
+                                pending_trailing_stop = new_stop
+
+                            # ----------------------------------------------
+                            # EXIT CHECKS
+                            # ----------------------------------------------
+
+                            if is_long:
+
+                                final_target_hit = (
+                                        high >= final_target
+                                )
+
+                                trailing_stop_hit = (
+                                        low <= trailing_stop
+                                )
+
+                            else:
+
+                                final_target_hit = (
+                                        low <= final_target
+                                )
+
+                                trailing_stop_hit = (
+                                        high >= trailing_stop
+                                )
+
+                            # TARGET FIRST PRIORITY
+
+                            if final_target_hit:
+
+                                realized_r += (
+                                        remaining_position *
+                                        final_target_r
+                                )
+
+                                pnl_r = realized_r
+
+                                exit_price = final_target
+
+                                trade_status = "Win"
+
+                                exit_time = dt
+                                exit_index = row.Index
+
+                                break
+
+                            elif trailing_stop_hit:
+
+                                if is_long:
+
+                                    trailing_r = (
+                                            (trailing_stop - entry_price)
+                                            / risk
+                                    )
+
+                                else:
+
+                                    trailing_r = (
+                                            (entry_price - trailing_stop)
+                                            / risk
+                                    )
+
+                                realized_r += (
+                                        remaining_position *
+                                        trailing_r
+                                )
+
+                                pnl_r = realized_r
+
+                                exit_price = trailing_stop
+
+                                trade_status = (
+                                    "Win"
+                                    if pnl_r > 0
+                                    else "Loss"
+                                )
+
+                                exit_time = dt
+                                exit_index = row.Index
+
+                                break
+
+                # ==========================================================
+                # EOD EXIT
+                # ==========================================================
+
+                if trade_status is None:
+
+                    last_row = df_post_entry.iloc[-1]
+
+                    final_close = last_row.close
+
+                    if is_long:
+
+                        final_r = (
+                                (final_close - entry_price)
+                                / risk
+                        )
+
+                        max_r_execution = max(
+                            max_r_execution,
+                            (
+                                    last_row.high - entry_price
+                            ) / risk
+                        )
+
+                        mae_r = min(
+                            mae_r,
+                            (
+                                    last_row.low - entry_price
+                            ) / risk
+                        )
+
+                    else:
+
+                        final_r = (
+                                (entry_price - final_close)
+                                / risk
+                        )
+
+                        max_r_execution = max(
+                            max_r_execution,
+                            (
+                                    entry_price - last_row.low
+                            ) / risk
+                        )
+
+                        mae_r = min(
+                            mae_r,
+                            (
+                                    entry_price - last_row.high
+                            ) / risk
+                        )
+
+                    # ------------------------------------------------------
+                    # STATIC
+                    # ------------------------------------------------------
+
+                    if exit_model == ExitModel.STATIC:
+
+                        pnl_r = round(final_r, 4)
+
+                    # ------------------------------------------------------
+                    # DYNAMIC
+                    # ------------------------------------------------------
+
+                    else:
+
+                        if partial_booked:
+
+                            realized_r += (
+                                    remaining_position *
+                                    final_r
+                            )
+
+                            pnl_r = realized_r
+
+                        else:
+
+                            pnl_r = round(final_r, 4)
+
+                    trade_status = (
+                        "Win"
+                        if pnl_r > 0
+                        else "Loss"
+                    )
+
+                    exit_price = final_close
+
+                    exit_time = last_row.trade_date
+
+                    exit_index = last_row.name
+
+                # ==========================================================
+                # FULL DAY MFE
+                # ==========================================================
+
+                max_r_full_day = max_r_execution
+
+                df_after_exit = df_trading_day_full.loc[
+                    exit_index + 1:
+                ]
+
+                if not df_after_exit.empty:
+
+                    if is_long:
+
+                        max_r_full_day = max(
+                            max_r_full_day,
+                            (
+                                    df_after_exit["high"].max()
+                                    - entry_price
+                            ) / risk
+                        )
+
+                    else:
+
+                        max_r_full_day = max(
+                            max_r_full_day,
+                            (
+                                    entry_price
+                                    - df_after_exit["low"].min()
+                            ) / risk
+                        )
+
+                # ==========================================================
+                # DURATION
+                # ==========================================================
+
+                exit_pos = (
+                    df_trading_day_full.index.get_loc(
+                        exit_index
+                    )
+                )
+
+                duration_minutes = (
+                                           exit_time - triggered_time
+                                   ).total_seconds() / 60
+
+                duration_bars = max(
+                    0,
+                    exit_pos - entry_index
+                )
+
+                # ==========================================================
+                # STORE RESULT
+                # ==========================================================
+
+                result.update({
+
+                    "Window": window["name"],
+
+                    "Entry": round(entry_price, 1),
+                    "Entry Time": triggered_time,
+
+                    "Exit": round(exit_price, 1),
+                    "Exit Time": exit_time,
+
+                    "R": round(pnl_r, 2),
+
+                    "MaxR_Execution": round(
+                        max_r_execution,
+                        1
+                    ),
+
+                    "MaxR_FullDay": round(
+                        max_r_full_day,
+                        1
+                    ),
+
+                    "MAE_R": round(mae_r, 1),
+
+                    "Status": trade_status,
+
+                    "Profit Amount": (
+                        round(pnl_r * risk * qty, 2)
+                        if pnl_r > 0
+                        else 0
+                    ),
+
+                    "Loss Amount": (
+                        round(abs(pnl_r * risk * qty), 2)
+                        if pnl_r < 0
+                        else 0
+                    ),
+
+                    "Duration_Minutes": round(
+                        duration_minutes
+                    ),
+
+                    "Duration_Bars": duration_bars,
+
+                    "RiskPerShare": risk,
+
+                    "ExitModel": exit_model.value,
+
+                    "PartialExitPct": partial_exit_pct,
+
+                    "RemainingPosition": remaining_position,
+
+                })
+
+                results.append(result)
 
     return results
 
@@ -506,7 +1085,7 @@ def print_r_distribution(df):
     print(f"  [CSV] r_distribution.csv saved.")
 
 
-def print_rolling_stats(df, window=200):
+def print_rolling_stats(df, window=20):
     if len(df) < window:
         print("\nNot enough trades for rolling analysis.")
         return
@@ -748,5 +1327,8 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
 
 if __name__ == "__main__":
     initialize_logger(TradeType.INTRADAY, "m15")
-    stocks = get_symbol_instrument_token()
-    backtest_historical_data_parallel(stocks)
+
+    # load symbols and instrument token
+    symbol_token_map = get_symbol_instrument_token(LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH)
+
+    backtest_historical_data_parallel(symbol_token_map)

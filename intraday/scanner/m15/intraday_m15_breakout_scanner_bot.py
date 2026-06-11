@@ -1,32 +1,37 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
-from math import floor
+from time import sleep
 
+import numpy as np
 import pandas as pd
 from ta.volatility import AverageTrueRange
 
-from intraday.scanner.m15.explosive_volume_m15_breakout_scanner import is_volume_explosion_breakout_detected
-from util.db_util import fetch_data
+from intraday.scanner.m15.early_momentum_breakout_scanner import is_early_momentum_breakout_detected
+from util.entry_type import EntryType
 from util.global_variables import *
+from util.kite_util import get_bid_ask
 from util.setup_type import IntradaySetupType
 from util.telegram_bot import send_telegram_alert
 from util.trade_logger import log
 from util.trade_type import TradeType
 
 
-def is_liquid_stock(breakout_candle):
+def is_liquid_breakout(breakout_candle):
     breakout_value = (
             breakout_candle['close'] *
             breakout_candle['volume']
     )
 
-    effective_capital = (
+    if breakout_value <= 0:
+        return False
+
+    buying_power = (
             TRADING_CAPITAL *
             INTRADAY_LEVERAGE_MULTIPLIER
     )
 
     participation_rate = (
-            effective_capital / breakout_value
+            buying_power / breakout_value
     )
 
     return participation_rate <= MAX_BREAKOUT_PARTICIPATION
@@ -35,8 +40,12 @@ def is_liquid_stock(breakout_candle):
 def get_previous_day_data(df):
     date_only = df['trade_date'].dt.date
     unique_dates = date_only.unique()
+
+    if len(unique_dates) < 2:
+        return df.iloc[0:0].copy()  # empty DataFrame with same structure
+
     yesterday = unique_dates[-2]
-    return df[df['trade_date'].dt.date == yesterday].copy()
+    return df[date_only == yesterday].copy()
 
 
 def calculate_gap(df_trading_day, df_previous_day):
@@ -61,47 +70,31 @@ def analyze_stock_for_setup(symbol,
                             is_backtesting=False):
     """
     Analyzes intraday stock data to detect potential breakout setups
-    (either ORB or VWAP) and sends a trade alert if a valid setup is found.
+    and sends a trade alert if a valid setup is found.
 
     This function evaluates the latest candle of the given trading day to check
     for high-conviction breakout conditions using multiple technical signals such
-    as candle strength, volume confirmation, resistance break, and structure.
-
-
-    Key Checks Performed:
-        1. Strong breakout candle (e.g., full-body bullish candle).
-        2. Strong volume confirmation (based on setup type: ORB or VWAP).
-        3. Key resistance level breakout.
-        4. Presence of higher-high, higher-low structure (bullish trend structure).
-        5. Specific logic for either:
-           - ORB breakout: Early morning breakout of initial range.
-           - VWAP breakout: Volume-supported breakout above VWAP later in the session.
-
-    If all conditions are met and the confidence score exceeds a threshold, the
-    function:
-        - Calculates position size and entry details.
-        - Formats and logs a detailed message.
-        - Sends the trade setup as a Telegram alert.
+    as candle strength, volume confirmation.
     """
 
     try:
+        log("info", "--------------------------------")
         # Filter trading day's data
         df_trading_day = df[df['trade_date'].dt.date == trading_day].copy()
 
         if len(df_trading_day) < 1:
             return None
 
-        log("info", "--------------------------------")
         breakout_candle = df_trading_day.iloc[BREAKOUT_CANDLE_IDX]
 
-        if not is_liquid_stock(breakout_candle):
+        if not is_liquid_breakout(breakout_candle):
             log("info", f"Skipping – illiquid stock {symbol}")
             return None
 
         df_previous_day = get_previous_day_data(df)
 
         if not is_valid_gap_opening(df_trading_day, df_previous_day):
-            log("info", f"Skipping – huge gapup opening stock {symbol}")
+            log("info", f"Skipping – huge opening gap detected in stock {symbol}")
             return None
 
         breakout_candle_date_time = breakout_candle['trade_date']
@@ -110,46 +103,50 @@ def analyze_stock_for_setup(symbol,
         log("info", f"Evaluating {symbol} | breakout_candle: {breakout_candle_date_time}")
 
         setup_type = None
+        entry_type = None
+
         is_breakout_detected = False
 
-        # ---------------------------------------------------------------------------------------------------------
-
-        # 1️⃣ VEB
-        if not is_breakout_detected and breakout_time == EVB_SCAN_CANDLE_TIME:
-            if is_volume_explosion_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EVB
+        if breakout_time == EVB_SCAN_CANDLE_TIME:
+            #  1 EMB LONG
+            if is_early_momentum_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EMB
+                entry_type = EntryType.LONG
                 is_breakout_detected = True
 
         if is_breakout_detected:
-            position = calculate_position(df_trading_day)
-            if not position:
-                return None
-
+            breakout_atr = breakout_candle['atr']
+            risk_per_share = get_risk_per_share(breakout_atr)
             if is_backtesting:
                 return {
                     'Symbol': symbol,
                     'Date': breakout_candle_date_time,
                     "Day": breakout_candle_date_time.strftime("%A"),
                     'Setup': setup_type.name,
-                    'Qty': position["qty"],
-                    'Risk': position['risk_per_share']
+                    'Entry Type': entry_type.name,
+                    'Risk': risk_per_share
                 }
 
+            if not is_spread_acceptable(symbol, breakout_atr):
+                log("warning", "Breakout rejected — spread too wide")
+                return None
+
+            entry_type_icon = "🟢" if entry_type == EntryType.LONG else "🔴"
+
             message = (
-                f"Setup Detected!\n\n"
-                f"Trade Type: {TradeType.INTRADAY.name} \n\n"
-                f"Type: {setup_type.name} \n\n"
-                f"Symbol: {symbol}\n\n"
-                f"Quantity: {position['qty']}\n\n"
-                f"Risk: {position['risk_per_share']} pips\n\n"
-                f"Target: {round(position['risk_per_share'] * INTRADAY_M15_TARGET_MULTIPLIER, 1)} pips \n\n"
+                f"{entry_type_icon} <b>{entry_type.name} SETUP DETECTED</b>\n\n\n"
+                f"📌 <b>Symbol : </b> {symbol}\n\n"
+                f"🧠 <b>Setup : </b> {setup_type.name}\n\n"
+                f"⚡ <b>Trade : </b> {TradeType.INTRADAY.name}\n\n\n"
+                f"⚠️ Risk : {risk_per_share} pips\n\n"
+                f"🎯 Target : {round(risk_per_share * INTRADAY_M5_TARGET_MULTIPLIER, 1)} pips\n"
             )
 
             send_telegram_alert(message)
             log("info", message)
 
     except Exception as e:
-        log("exception", f"Error processing stock {symbol}: {e}")
+        log("error", f"Error in analyzing stock {symbol}: {e}", exc_info=True)
 
 
 def add_technical_indicators(df):
@@ -157,89 +154,77 @@ def add_technical_indicators(df):
     df['volume_sma_20'] = df['volume'].shift(1).rolling(window=20).mean()
 
 
-def process_stock(symbol, table_name):
+def process_stock(symbol, stock_data_df):
     """Processes a single stock symbol safely with exception handling."""
     try:
-        stock_data_df = get_stock_dataframe(symbol, table_name)
-
-        if stock_data_df is not None and len(stock_data_df) >= INTRADAY_M15_CANDLE_LIMIT / 2:
+        if stock_data_df is not None and len(stock_data_df) >= INTRADAY_M5_CANDLE_LIMIT:
             add_technical_indicators(stock_data_df)
             analyze_stock_for_setup(symbol, stock_data_df)
     except Exception as e:
-        log("exception", f"Error processing stock {symbol}: {e}")
+        log("error", f"Error processing stock {symbol}: {e}", exc_info=True)
 
 
-def run_intraday_m15_screener_parallel(symbols, table_name):
+def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:
     """
-    Runs the intraday breakout screener for a list of stock symbols in parallel.
-    MAX_WORKERS: number of concurrent threads to use (Decide based based of no of CPU cores)
+    Runs the intraday breakout screener in parallel across all symbols.
+    MAX_WORKERS: tune based on number of CPU cores available.
     """
-    log("info", f"Starting parallel screener with {MAX_WORKERS} workers for {len(symbols)} symbols.")
+    log("info", f"Starting screener with {MAX_WORKERS} workers for {len(symbol_df_map)} symbols.")
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = {executor.submit(process_stock, symbol, table_name): symbol for symbol in symbols}
+        futures = {
+            executor.submit(process_stock, symbol, df): symbol
+            for symbol, df in symbol_df_map.items()
+        }
 
         for future in as_completed(futures):
             symbol = futures[future]
             try:
-                future.result()  # Retrieve exceptions if any
+                future.result()
             except Exception as e:
                 log("exception", f"Thread error in {symbol}: {e}")
 
-    log("info", "Parallel screener completed.")
+    log("info", "Screener completed.")
 
 
-def get_stock_dataframe(symbol, table_name):
+def get_risk_per_share(breakout_atr):
     """
-    Fetches intraday stock data for the given symbol from the database
-    and returns a cleaned and sorted pandas DataFrame.
     """
-
-    data = fetch_data(table_name, symbol, INTRADAY_M15_CANDLE_LIMIT)
-
-    df = pd.DataFrame(data, columns=['id', 'symbol', 'trade_date', 'open', 'high', 'low', 'close', 'volume'])
-
-    # Clean & convert
-    numeric_cols = ['open', 'high', 'low', 'close', 'volume']
-    df[numeric_cols] = df[numeric_cols].apply(pd.to_numeric, errors='coerce')
-    df['trade_date'] = pd.to_datetime(df['trade_date'])
-
-    df = df.dropna().sort_values('trade_date', ascending=True)
-    return df
+    return round(breakout_atr * ATR_RISK_MULTIPLIER, 1)
 
 
-def calculate_position(df):
+def get_spread_atr_ratio(symbol, atr, samples=5, delay=1):
     """
-    Calculates position size using:
-    - 1% risk of real trading capital
-    - 5x leverage for buying power
+    Stable spread/ATR ratio using median spread sampling.
     """
-
-    risk_per_share = df["atr"].iloc[BREAKOUT_CANDLE_IDX] * ATR_RISK_MULTIPLIER
-
-    if risk_per_share <= 0:
+    if atr <= 0:
         return None
 
-    entry_price = df["high"].iloc[BREAKOUT_CANDLE_IDX]
+    spreads = []
 
-    # REAL risk (based on equity)
-    risk_amount = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
+    for _ in range(samples):
+        bid, ask = get_bid_ask(symbol)
 
-    # Buying power (equity × leverage)
-    buying_power = TRADING_CAPITAL * 5
+        if 0 < bid <= ask and ask > 0:
+            spreads.append(ask - bid)
 
-    # Risk-based qty
-    risk_based_qty = risk_amount / risk_per_share
+        sleep(delay)
 
-    # Capital-based qty (using leverage)
-    capital_based_qty = buying_power / entry_price
+    if not spreads:
+        return None
 
-    raw_qty = min(risk_based_qty, capital_based_qty)
+    median_spread = np.median(spreads)
 
-    if raw_qty > 10:
-        raw_qty = round(raw_qty / 10.0) * 10
+    return round(median_spread / atr, 4)
 
-    return {
-        "qty": floor(raw_qty),
-        "risk_per_share": round(risk_per_share, 1),
-    }
+
+def is_spread_acceptable(symbol, atr):
+    """
+    Returns True if the spread/ATR ratio is within acceptable limits.
+    """
+    ratio = get_spread_atr_ratio(symbol, atr)
+
+    if ratio is None:
+        return False  # Reject if spread data unavailable
+
+    return ratio <= NSE_MAX_SPREAD_ATR_RATIO
