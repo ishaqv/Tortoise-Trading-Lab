@@ -179,6 +179,27 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 
 ---
 
+## 🔹 Setup 4 — Failed Momentum Breakout (FMB)
+
+**Concept:** Identifies stocks that initially showed bullish momentum but failed to sustain it, leading to a reversal.
+This setup reuses the same candidates flagged by the Momentum Breakout scanner, but trades them in the opposite
+direction — taking SHORT positions instead of LONG.
+
+![FMB.png](FMB.png)
+
+**Entry Criteria:**
+
+- Wait for the confirmation candle's low to be broken.
+- **Do not enter on the first break.** The first break is treated as a trigger only — not an entry.
+- Allow price to retest the confirmation candle low level.
+- Enter SHORT only when price breaks below this low a **second time**.
+
+**Filter Condition:**
+
+- The confirmation candle's low must be **below the VWAP** for the setup to be valid.
+
+---
+
 ### Disclaimer: No setup works forever. Markets evolve, and setups evolve with them. If you fail to adapt, your edge will gradually disappear. ###
 
 The core mindset shift — treat every setup like a product with a lifecycle. It has a launch phase (edge is strong,
