@@ -179,13 +179,13 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 
 ---
 
-## 🔹 Setup 4 — Failed Momentum Breakout (FMB)
+## 🔹 Setup 4 — Bull Trap Reversal (BTR)
 
 **Concept:** Identifies stocks that initially showed bullish momentum but failed to sustain it, leading to a reversal.
 This setup reuses the same candidates flagged by the Momentum Breakout scanner, but trades them in the opposite
 direction — taking SHORT positions instead of LONG.
 
-![FMB.png](FMB.png)
+![BTR.png](BTR.png)
 
 **Entry Criteria:**
 
