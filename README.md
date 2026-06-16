@@ -182,8 +182,8 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 ## 🔹 Setup 4 — Bull Trap Reversal (BTR)
 
 **Concept:** Identifies stocks that initially showed bullish momentum but failed to sustain it, leading to a reversal.
-This setup reuses the same candidates flagged by the Momentum Breakout scanner, but trades them in the opposite
-direction — taking SHORT positions instead of LONG.
+This setup reuses the same candidates flagged by the Momentum Breakout scanner(from setup 1/2/3), but trades them in the
+opposite direction — taking SHORT positions instead of LONG.
 
 ![BTR.png](BTR.png)
 
@@ -214,6 +214,7 @@ setup. The moment setup 20-trade rolling expectancy started dipping below its 50
 the early warning.
 
 #### Always have a setup in observation mode
+
 New setup discovery should be a continuous background process, not a scramble triggered by breakdown.
 At any point, maintain at least one setup in observation mode — paper tracking or minimal live size — so that by the
 time a primary setup deteriorates, you already have 3–6 months of live data behind the candidate.
@@ -242,6 +243,7 @@ Position size is calculated using the logic below.
     if tradable_qty > 5:
         tradable_qty = round(tradable_qty / 5.0) * 5
 ```
+
 ### How to Use
 
 ### 📎 [Open Position Size Calculator](https://docs.google.com/spreadsheets/d/1dgWrre2iDaxW4oJEYqlwa8DinsedHIv0Q6LEBiSpBtM/edit?usp=sharing)

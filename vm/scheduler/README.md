@@ -14,7 +14,6 @@ with Cloud Scheduler.
 ├── requirements.txt     # Dependencies for the Cloud Function
 ```
 
-
 ### 🛠️ Setup & Run Instructions
 
 Install the **Google Cloud SDK (`gcloud`)** if it’s not already installed.
