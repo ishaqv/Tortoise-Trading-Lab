@@ -10,7 +10,7 @@ from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 
 # ── CONFIG ────────────────────────────────────────────────
 MIN_PCT_CHANGE = 2.0
-MAX_PCT_CHANGE = 6.0
+MAX_PCT_CHANGE = 8.0
 
 MIN_GAP_UP = 0.0
 MAX_GAP_UP = 3.0
