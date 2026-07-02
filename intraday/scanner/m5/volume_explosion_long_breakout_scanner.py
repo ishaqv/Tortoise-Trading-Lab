@@ -4,7 +4,7 @@ from util.trade_logger import log
 def is_strong_breakout_candle(breakout_candle,
                               body_threshold=0.5,
                               max_wick_ratio=0.25,
-                              max_body_atr_multiplier=5):
+                              max_body_atr_multiplier=5.1):
     """
     Determines whether the breakout candle is a strong, healthy bullish candle(body > 50% and upper wick < 35%).
     """
