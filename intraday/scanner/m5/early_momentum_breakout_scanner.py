@@ -2,16 +2,15 @@ from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 from util.trade_logger import log
 
 # ── CONFIG ────────────────────────────────────────────────
-MIN_PCT_CHANGE = 2.0
-MAX_PCT_CHANGE = 6.0
-MAX_PARTICIPATION_RATE = 0.5
+MIN_PCT_CHANGE = 2.5
+MAX_PCT_CHANGE = 6.5
+MAX_PARTICIPATION_RATE = 0.7
 buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
 
 
 def is_strong_breakout_candle(breakout_candle,
-                              body_threshold=0.6,
-                              max_wick_ratio=0.25,
-                              max_body_atr_multiplier=7):
+                              body_threshold=0.5,
+                              max_wick_ratio=0.3):
     """
     Determines whether the breakout candle is a strong, healthy bullish candle(body > 50% and upper wick < 35%).
     """
@@ -37,9 +36,6 @@ def is_strong_breakout_candle(breakout_candle,
     if upper_wick_pct > max_wick_ratio:
         return False
 
-    # Rejecting over extended moves
-    if body > breakout_atr * max_body_atr_multiplier:
-        return False
 
     return True
 
@@ -55,11 +51,11 @@ def is_early_momentum_breakout_candle(breakout_candle):
         2
     )
 
-    return MAX_PCT_CHANGE > price_change_pct > MIN_PCT_CHANGE and participation_rate < MAX_PARTICIPATION_RATE
+    return MAX_PCT_CHANGE >= price_change_pct >= MIN_PCT_CHANGE and participation_rate < MAX_PARTICIPATION_RATE
 
 
 def is_valid_breakout_volume(breakout_candle,
-                             min_multiplier=3):
+                             min_multiplier=4):
     """
     """
     return breakout_candle['volume'] > min_multiplier * breakout_candle['volume_sma_20']

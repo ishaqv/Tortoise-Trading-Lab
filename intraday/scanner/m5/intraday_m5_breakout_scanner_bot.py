@@ -52,17 +52,16 @@ def get_previous_day_data(df):
 def calculate_gap(df_trading_day, df_previous_day):
     today_open = df_trading_day.iloc[0].open
     yesterday_close = df_previous_day.iloc[-1].close
-    gap = abs(today_open - yesterday_close)
-    return gap
+    # Gap from previous close
+    gap_pct = round(abs(today_open - yesterday_close) / yesterday_close * 100, 1)
+    return gap_pct
 
 
-def is_valid_gap_opening(df_trading_day, df_previous_day, max_gap_in_atr=3):
+def is_valid_gap_opening(df_trading_day, df_previous_day):
     if len(df_previous_day) < 1:
         return True  # allow first day
-    gap = calculate_gap(df_trading_day, df_previous_day)
-    atr = df_trading_day.iloc[0].atr  # ATR from first candle
-    gap_in_atr = gap / atr
-    return gap_in_atr < max_gap_in_atr
+    gap_pct = calculate_gap(df_trading_day, df_previous_day)
+    return gap_pct < MAX_OPENING_GAP_PCT
 
 
 def analyze_stock_for_setup(symbol,
@@ -109,16 +108,15 @@ def analyze_stock_for_setup(symbol,
         is_breakout_detected = False
 
         if breakout_time == EVB_SCAN_CANDLE_TIME:
-            #  1 EMB LONG
-            if is_early_momentum_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EMB
+            #  1 EVB LONG
+            if is_volume_explosion_long_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EVB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 
-
-            # 2 EVB LONG
-            elif is_volume_explosion_long_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EVB
+            # 2 EMB LONG
+            elif is_early_momentum_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EMB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 
