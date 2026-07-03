@@ -13,6 +13,7 @@ from util.global_variables import INTRADAY_M5_CANDLE_SIZE, TRADING_CAPITAL, MAX_
     INTRADAY_LEVERAGE_MULTIPLIER, \
     EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_TARGET_MULTIPLIER, INTRADAY_M5_CANDLE_LIMIT
 from util.kite_util import get_kite
+from util.setup_type import IntradaySetupType
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
 from util.trade_type import TradeType
@@ -246,11 +247,15 @@ def process_symbol(
                 # ==========================================================
 
                 if is_long:
-
-                    trigger_price = (
-                            confirmation_candle["high"] +
-                            atr_entry_buffer * atr
-                    )
+                    if result["Setup"] == IntradaySetupType.EMB.name:
+                        trigger_price = (
+                                max(confirmation_candle["high"], breakout_candle["high"]) +
+                                atr_entry_buffer * atr
+                        )
+                    else:
+                        trigger_price = (
+                                confirmation_candle["high"] + atr_entry_buffer * atr
+                        )
 
                 else:
 
