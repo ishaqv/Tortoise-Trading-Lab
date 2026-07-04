@@ -143,7 +143,7 @@ def process_symbol(
         exit_model=ExitModel.STATIC,
         partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
         final_target_r=10,
-        atr_entry_buffer=0.1
+        atr_entry_buffer=0.01
 ):
     ENTRY_LOOKAHEAD_CANDLES = 10
 

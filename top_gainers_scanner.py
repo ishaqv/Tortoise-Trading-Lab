@@ -14,7 +14,7 @@ MAX_PCT_CHANGE = 6.5
 
 MAX_OPENING_GAP_PCT = 2.5
 
-MAX_PARTICIPATION_RATE = 0.7
+MAX_PARTICIPATION_RATE = 0.75
 
 # ── FILE ──────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ def main():
 
         (df["gap_pct"] <= MAX_OPENING_GAP_PCT) &
 
-        (df["participation_rate"] < MAX_PARTICIPATION_RATE)
+        (df["participation_rate"] <= MAX_PARTICIPATION_RATE)
         ]
 
     # =========================

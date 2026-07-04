@@ -4,7 +4,7 @@ from util.trade_logger import log
 # ── CONFIG ────────────────────────────────────────────────
 MIN_PCT_CHANGE = 2.5
 MAX_PCT_CHANGE = 6.5
-MAX_PARTICIPATION_RATE = 0.7
+MAX_PARTICIPATION_RATE = 0.75
 buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
 
 
@@ -51,7 +51,7 @@ def is_early_momentum_breakout_candle(breakout_candle):
         2
     )
 
-    return MAX_PCT_CHANGE >= price_change_pct >= MIN_PCT_CHANGE and participation_rate < MAX_PARTICIPATION_RATE
+    return MAX_PCT_CHANGE >= price_change_pct >= MIN_PCT_CHANGE and participation_rate <= MAX_PARTICIPATION_RATE
 
 
 def is_valid_breakout_volume(breakout_candle,
