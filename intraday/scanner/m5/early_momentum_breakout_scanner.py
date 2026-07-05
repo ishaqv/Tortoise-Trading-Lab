@@ -36,7 +36,6 @@ def is_strong_breakout_candle(breakout_candle,
     if upper_wick_pct > max_wick_ratio:
         return False
 
-
     return True
 
 

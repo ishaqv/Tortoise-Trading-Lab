@@ -21,7 +21,7 @@ For an All Time High(ATH) stock there is no overhead supply, the runway is undef
 **✅ Do not enter or hold any trade in a stock on the day of its scheduled corporate event, such as quarterly results,
 earnings announcements, board meetings, or management updates — regardless of how strong the breakout setup appears.**
 
-Event-driven volatility is **unpredictable and news-reactive**, not technically driven.  
+Event-driven volatility is **unpredictable and news-reactive**, not technically driven.
 
 **✅ Never short a stock that is capable of hitting the upper circuit if you cannot exit well before the broker's RMS
 square-off**
