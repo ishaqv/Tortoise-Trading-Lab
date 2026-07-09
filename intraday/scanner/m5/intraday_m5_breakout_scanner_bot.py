@@ -61,7 +61,7 @@ def is_valid_gap_opening(df_trading_day, df_previous_day):
     if len(df_previous_day) < 1:
         return True  # allow first day
     gap_pct = calculate_gap(df_trading_day, df_previous_day)
-    return gap_pct < MAX_OPENING_GAP_PCT
+    return MIN_OPENING_GAP_PCT <= gap_pct <= MAX_OPENING_GAP_PCT
 
 
 def analyze_stock_for_setup(symbol,
@@ -109,15 +109,15 @@ def analyze_stock_for_setup(symbol,
 
         if breakout_time == EVB_SCAN_CANDLE_TIME:
 
-            # EMB LONG
-            if is_early_momentum_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EMB
+            #  EVB LONG
+            if is_volume_explosion_long_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EVB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 
-            #  EVB LONG
-            elif is_volume_explosion_long_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EVB
+            # EMB LONG
+            elif is_early_momentum_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EMB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 
@@ -199,7 +199,7 @@ def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:
 def get_risk_per_share(breakout_atr):
     """
     """
-    return round(breakout_atr * ATR_RISK_MULTIPLIER, 1)
+    return round(breakout_atr * INTRADAY_M5_ATR_RISK_MULTIPLIER, 1)
 
 
 def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
