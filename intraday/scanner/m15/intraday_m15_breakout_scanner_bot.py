@@ -51,17 +51,16 @@ def get_previous_day_data(df):
 def calculate_gap(df_trading_day, df_previous_day):
     today_open = df_trading_day.iloc[0].open
     yesterday_close = df_previous_day.iloc[-1].close
-    gap = abs(today_open - yesterday_close)
-    return gap
+    # Gap from previous close
+    gap_pct = round(abs(today_open - yesterday_close) / yesterday_close * 100, 1)
+    return gap_pct
 
 
-def is_valid_gap_opening(df_trading_day, df_previous_day, max_gap_in_atr=3):
+def is_valid_gap_opening(df_trading_day, df_previous_day):
     if len(df_previous_day) < 1:
         return True  # allow first day
-    gap = calculate_gap(df_trading_day, df_previous_day)
-    atr = df_trading_day.iloc[0].atr  # ATR from first candle
-    gap_in_atr = gap / atr
-    return gap_in_atr < max_gap_in_atr
+    gap_pct = calculate_gap(df_trading_day, df_previous_day)
+    return MIN_OPENING_GAP_PCT <= gap_pct <= MAX_OPENING_GAP_PCT
 
 
 def analyze_stock_for_setup(symbol,
@@ -139,7 +138,7 @@ def analyze_stock_for_setup(symbol,
                 f"🧠 <b>Setup : </b> {setup_type.name}\n\n"
                 f"⚡ <b>Trade : </b> {TradeType.INTRADAY.name}\n\n\n"
                 f"⚠️ Risk : {risk_per_share} pips\n\n"
-                f"🎯 Target : {round(risk_per_share * INTRADAY_M5_TARGET_MULTIPLIER, 1)} pips\n"
+                f"🎯 Target : {round(risk_per_share * INTRADAY_M15_TARGET_MULTIPLIER, 1)} pips\n"
             )
 
             send_telegram_alert(message)
@@ -157,7 +156,7 @@ def add_technical_indicators(df):
 def process_stock(symbol, stock_data_df):
     """Processes a single stock symbol safely with exception handling."""
     try:
-        if stock_data_df is not None and len(stock_data_df) >= INTRADAY_M5_CANDLE_LIMIT:
+        if stock_data_df is not None and len(stock_data_df) >= INTRADAY_M15_CANDLE_LIMIT:
             add_technical_indicators(stock_data_df)
             analyze_stock_for_setup(symbol, stock_data_df)
     except Exception as e:
@@ -190,7 +189,7 @@ def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:
 def get_risk_per_share(breakout_atr):
     """
     """
-    return round(breakout_atr * ATR_RISK_MULTIPLIER, 1)
+    return round(breakout_atr * INTRADAY_M15_ATR_RISK_MULTIPLIER, 1)
 
 
 def get_spread_atr_ratio(symbol, atr, samples=5, delay=1):

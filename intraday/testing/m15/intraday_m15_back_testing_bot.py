@@ -9,9 +9,9 @@ import pandas as pd
 from intraday.scanner.m15.intraday_m15_breakout_scanner_bot import analyze_stock_for_setup, add_technical_indicators
 from util.entry_type import EntryType
 from util.exit_model_util import ExitModel
-from util.global_variables import EVB_SCAN_CANDLE_TIME, TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER, \
-    MAX_RISK_PER_TRADE_PERCENT, INTRADAY_M15_TARGET_MULTIPLIER, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, \
-    INTRADAY_M15_CANDLE_LIMIT, INTRADAY_M15_CANDLE_SIZE
+from util.global_variables import INTRADAY_M15_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
+    INTRADAY_LEVERAGE_MULTIPLIER, \
+    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M15_TARGET_MULTIPLIER, INTRADAY_M15_CANDLE_LIMIT
 from util.kite_util import get_kite
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
@@ -22,6 +22,19 @@ INTERVAL = "15minute"
 DAYS = 100  # Max allowed per Kite API
 DATA_FOLDER = f"data/{INTERVAL}"
 REPORT_FOLDER = "reports"
+ENTRY_SLIPPAGE_ATR_MULT = 0.1
+SL_EXIT_SLIPPAGE_ATR_MULT = 0.1
+# Flat round-trip cost (brokerage + STT + other statutory charges), in ₹,
+# charged once per completed trade (entry + exit combined).
+ROUND_TRIP_COST = 845
+
+
+def _slip_atr(row_atr, fallback_atr):
+    """Use the bar's own ATR when available/valid, else fall back to the
+    ATR captured at breakout/entry time."""
+    if row_atr is None or pd.isna(row_atr) or row_atr <= 0:
+        return fallback_atr
+    return row_atr
 
 # ─── Breakout windows ─────────────────────────────────────────────────────────
 BREAKOUT_WINDOWS = [
@@ -142,7 +155,7 @@ def process_symbol(
         exit_model=ExitModel.STATIC,
         partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
         final_target_r=10,
-        atr_entry_buffer=0.1
+        atr_entry_buffer=0.01
 ):
     ENTRY_LOOKAHEAD_CANDLES = 5
 
@@ -246,7 +259,6 @@ def process_symbol(
                 # ==========================================================
 
                 if is_long:
-
                     trigger_price = (
                             confirmation_candle["high"] +
                             atr_entry_buffer * atr
@@ -267,7 +279,19 @@ def process_symbol(
                 for row in df_entry_window.itertuples():
 
                     if row.low <= trigger_price <= row.high:
+
                         entry_price = trigger_price
+
+                        # Slippage does NOT shift the entry fill (and
+                        # therefore does not shift stop/target geometry).
+                        # It is tracked as a separate per-share cost and
+                        # deducted only from the rupee P&L later.
+                        entry_bar_atr = _slip_atr(
+                            getattr(row, "atr", None), atr
+                        )
+                        entry_slippage_per_share = (
+                                ENTRY_SLIPPAGE_ATR_MULT * entry_bar_atr
+                        )
 
                         triggered_time = row.trade_date
 
@@ -296,6 +320,11 @@ def process_symbol(
                     continue
 
                 qty = compute_quantity(entry_price, risk)
+
+                # Exit-side slippage cost (per share), only ever set when
+                # the trade actually exits via a stop-loss / trailing stop.
+                # Stays 0 for target / EOD exits.
+                exit_slippage_per_share = 0.0
 
                 # ==========================================================
                 # STATIC EXIT LEVELS
@@ -452,7 +481,7 @@ def process_symbol(
                                     high >= stop_loss
                             )
 
-                        # TARGET FIRST PRIORITY
+                        # INTRABAR PRIORITY: TARGET FIRST
 
                         if target_hit:
 
@@ -474,6 +503,13 @@ def process_symbol(
                             exit_price = stop_loss
 
                             pnl_r = -1
+
+                            exit_bar_atr = _slip_atr(
+                                getattr(row, "atr", None), atr
+                            )
+                            exit_slippage_per_share = (
+                                    SL_EXIT_SLIPPAGE_ATR_MULT * exit_bar_atr
+                            )
 
                             trade_status = "Loss"
 
@@ -514,8 +550,7 @@ def process_symbol(
                                         high >= stop_loss
                                 )
 
-                            # IMPORTANT:
-                            # PRIORITIZE PARTIAL FIRST
+                            # INTRABAR PRIORITY: PARTIAL TARGET FIRST
 
                             if partial_hit:
 
@@ -537,6 +572,13 @@ def process_symbol(
                                 exit_price = stop_loss
 
                                 pnl_r = -1
+
+                                exit_bar_atr = _slip_atr(
+                                    getattr(row, "atr", None), atr
+                                )
+                                exit_slippage_per_share = (
+                                        SL_EXIT_SLIPPAGE_ATR_MULT * exit_bar_atr
+                                )
 
                                 trade_status = "Loss"
 
@@ -604,7 +646,7 @@ def process_symbol(
                                         high >= trailing_stop
                                 )
 
-                            # TARGET FIRST PRIORITY
+                            # INTRABAR PRIORITY: FINAL TARGET FIRST
 
                             if final_target_hit:
 
@@ -626,6 +668,15 @@ def process_symbol(
 
                             elif trailing_stop_hit:
 
+                                exit_price = trailing_stop
+
+                                exit_bar_atr = _slip_atr(
+                                    getattr(row, "atr", None), atr
+                                )
+                                exit_slippage_per_share = (
+                                        SL_EXIT_SLIPPAGE_ATR_MULT * exit_bar_atr
+                                )
+
                                 if is_long:
 
                                     trailing_r = (
@@ -646,8 +697,6 @@ def process_symbol(
                                 )
 
                                 pnl_r = realized_r
-
-                                exit_price = trailing_stop
 
                                 trade_status = (
                                     "Win"
@@ -832,15 +881,57 @@ def process_symbol(
 
                     "Status": trade_status,
 
+                    # Gross PnL (before costs) vs Net PnL (after slippage
+                    # cost + flat round-trip brokerage/STT/other charges).
+                    # Note: R itself (and target/SL levels) is computed off
+                    # the clean signal price — slippage only hits the
+                    # rupee P&L, never the trade geometry.
+                    "Gross PnL": round(pnl_r * risk * qty, 2),
+
+                    "SlippagePerShare": round(
+                        entry_slippage_per_share + exit_slippage_per_share, 4
+                    ),
+
+                    "SlippageCost": round(
+                        (entry_slippage_per_share + exit_slippage_per_share)
+                        * qty, 2
+                    ),
+
+                    "RoundTripCost": ROUND_TRIP_COST,
+
+                    "Net PnL": round(
+                        pnl_r * risk * qty
+                        - (entry_slippage_per_share + exit_slippage_per_share) * qty
+                        - ROUND_TRIP_COST, 2
+                    ),
+
                     "Profit Amount": (
-                        round(pnl_r * risk * qty, 2)
-                        if pnl_r > 0
+                        round(
+                            pnl_r * risk * qty
+                            - (entry_slippage_per_share + exit_slippage_per_share) * qty
+                            - ROUND_TRIP_COST, 2
+                        )
+                        if (
+                                   pnl_r * risk * qty
+                                   - (entry_slippage_per_share + exit_slippage_per_share) * qty
+                                   - ROUND_TRIP_COST
+                           ) > 0
                         else 0
                     ),
 
                     "Loss Amount": (
-                        round(abs(pnl_r * risk * qty), 2)
-                        if pnl_r < 0
+                        round(
+                            abs(
+                                pnl_r * risk * qty
+                                - (entry_slippage_per_share + exit_slippage_per_share) * qty
+                                - ROUND_TRIP_COST
+                            ), 2
+                        )
+                        if (
+                                   pnl_r * risk * qty
+                                   - (entry_slippage_per_share + exit_slippage_per_share) * qty
+                                   - ROUND_TRIP_COST
+                           ) < 0
                         else 0
                     ),
 
@@ -881,12 +972,18 @@ def apply_dynamic_compounding(df,
     expectancy, profit factor) not compounded ₹ growth. Static sizing keeps
     ₹ PnL linear with Total R, making it easy to sanity-check.
 
-    ₹ PnL per trade = R × fixed_risk_per_trade (in rupees)
+    ₹ PnL per trade = R × fixed_risk_per_trade (in rupees), net of:
+      - slippage cost = SlippagePerShare × qty (entry slippage always,
+        exit/SL slippage only when the trade actually exited via a
+        stop/trailing-stop — R and target/SL geometry stay clean)
+      - a flat ROUND_TRIP_COST (brokerage + STT + other charges) charged
+        once per completed trade.
     """
     risk_amount = starting_capital * max_risk_pct
     buying_power = starting_capital * leverage
 
     pnl_list = []
+    gross_pnl_list = []
     cum_r = []
     equity = []
     r_total = 0
@@ -895,9 +992,11 @@ def apply_dynamic_compounding(df,
     for _, row in df.iterrows():
         risk_per_share = row["RiskPerShare"]
         entry_price = row["Entry"]
+        slippage_per_share = row.get("SlippagePerShare", 0)
 
         if risk_per_share <= 0:
             pnl_list.append(0)
+            gross_pnl_list.append(0)
             cum_r.append(r_total)
             equity.append(starting_capital + running_pnl)
             continue
@@ -908,18 +1007,27 @@ def apply_dynamic_compounding(df,
 
         if qty <= 0:
             pnl_list.append(0)
+            gross_pnl_list.append(0)
             cum_r.append(r_total)
             equity.append(starting_capital + running_pnl)
             continue
 
-        trade_pnl = row["R"] * qty * risk_per_share
+        gross_trade_pnl = row["R"] * qty * risk_per_share
+        trade_pnl = (
+                gross_trade_pnl
+                - (slippage_per_share * qty)
+                - ROUND_TRIP_COST
+        )
+
         r_total += row["R"]
         running_pnl += trade_pnl
 
         pnl_list.append(trade_pnl)
+        gross_pnl_list.append(gross_trade_pnl)
         cum_r.append(r_total)
         equity.append(starting_capital + running_pnl)
 
+    df["Gross_PnL"] = gross_pnl_list
     df["PnL"] = pnl_list
     df["Cum_R"] = cum_r
     df["Equity"] = equity
