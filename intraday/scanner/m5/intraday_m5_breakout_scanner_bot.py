@@ -123,7 +123,14 @@ def analyze_stock_for_setup(symbol,
 
         if is_breakout_detected:
             breakout_atr = breakout_candle['atr']
-            risk_per_share = get_risk_per_share(breakout_atr)
+            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
+            if not is_spread_acceptable(spread_atr_ratio):
+                message = f"Breakout rejected for {symbol} — spread (spread_atr_ratio = {round(spread_atr_ratio * 100, 1)}) too wide"
+                log("warning", message)
+                send_telegram_alert(message)
+                return None
+
+            risk_per_share = get_risk_per_share(breakout_atr, spread_atr_ratio)
             if is_backtesting:
                 return {
                     'Symbol': symbol,
@@ -134,11 +141,7 @@ def analyze_stock_for_setup(symbol,
                     'Risk': risk_per_share
                 }
 
-            if not is_spread_acceptable(symbol, breakout_atr):
-                message = f"Breakout rejected for {symbol} — spread too wide"
-                log("warning", message)
-                send_telegram_alert(message)
-                return None
+
 
             entry_type_icon = "🟢" if entry_type == EntryType.LONG else "🔴"
 
@@ -196,9 +199,13 @@ def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:
     log("info", "Screener completed.")
 
 
-def get_risk_per_share(breakout_atr):
+def get_risk_per_share(breakout_atr, spread_atr_ratio):
     """
     """
+    if spread_atr_ratio > 0.075:
+        return round(breakout_atr * INTRADAY_M5_ATR_RISK_MULTIPLIER * 1.5, 1)
+    elif spread_atr_ratio > 0.05:
+        return round(breakout_atr * INTRADAY_M5_ATR_RISK_MULTIPLIER * 1.25, 1)
     return round(breakout_atr * INTRADAY_M5_ATR_RISK_MULTIPLIER, 1)
 
 
@@ -227,13 +234,12 @@ def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
     return round(median_spread / atr, 4)
 
 
-def is_spread_acceptable(symbol, atr):
+def is_spread_acceptable(spread_atr_ratio):
     """
     Returns True if the spread/ATR ratio is within acceptable limits.
     """
-    ratio = get_spread_atr_ratio(symbol, atr)
 
-    if ratio is None:
+    if spread_atr_ratio is None:
         return False  # Reject if spread data unavailable
 
-    return ratio <= NSE_MAX_SPREAD_ATR_RATIO
+    return spread_atr_ratio <= NSE_MAX_SPREAD_ATR_RATIO
