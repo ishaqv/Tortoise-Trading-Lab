@@ -246,7 +246,7 @@ Position size is calculated using the logic below.
 
 ### How to Use
 
-### 📎 [Open Position Size Calculator](https://docs.google.com/spreadsheets/d/1dgWrre2iDaxW4oJEYqlwa8DinsedHIv0Q6LEBiSpBtM/edit?usp=sharing)
+### 📎 [Open Position Size Calculator](https://docs.google.com/spreadsheets/d/17a6biT8HTaTvbsJVUkGBKKUIwe4mWcmqgWH95-mGx9c/edit?usp=sharing)
 
 Enter your **Trading Capital**, **Symbol**, and **ATR** to calculate the recommended **Quantity**, **Stop Loss**, and
 **Target**.
