@@ -61,7 +61,7 @@ def is_valid_gap_opening(df_trading_day, df_previous_day):
     if len(df_previous_day) < 1:
         return True  # allow first day
     gap_pct = calculate_gap(df_trading_day, df_previous_day)
-    return MIN_OPENING_GAP_PCT <= gap_pct <= MAX_OPENING_GAP_PCT
+    return gap_pct <= MAX_OPENING_GAP_PCT
 
 
 def analyze_stock_for_setup(symbol,
@@ -123,7 +123,7 @@ def analyze_stock_for_setup(symbol,
 
         if is_breakout_detected:
             breakout_atr = breakout_candle['atr']
-            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
+            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr, is_backtesting)
             if not is_spread_acceptable(spread_atr_ratio):
                 message = f"Breakout rejected for {symbol} — spread (spread_atr_ratio = {round(spread_atr_ratio * 100, 1)}) too wide"
                 log("warning", message)
@@ -209,10 +209,13 @@ def get_risk_per_share(breakout_atr, spread_atr_ratio):
     return round(breakout_atr * INTRADAY_M5_ATR_RISK_MULTIPLIER, 1)
 
 
-def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
+def get_spread_atr_ratio(symbol, atr, is_backtesting, samples=5, delay=0.2):
     """
     Stable spread/ATR ratio using median spread sampling.
     """
+    if is_backtesting:
+        return 0
+
     if atr <= 0:
         return None
 
