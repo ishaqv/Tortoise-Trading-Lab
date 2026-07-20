@@ -12,7 +12,7 @@ from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 MIN_PCT_CHANGE = 2.5
 MAX_PCT_CHANGE = 6.5
 MAX_OPENING_GAP_PCT = 3.0
-MAX_PARTICIPATION_RATE = 0.75
+MAX_PARTICIPATION_RATE = 1.0
 
 # ── FILE ──────────────────────────────────────────────────
 
@@ -68,7 +68,10 @@ def main():
                     "participation_rate"
                 ]
             ]
-            .sort_values(by="participation_rate", ascending=True)
+            .sort_values(
+                by=["participation_rate", "price_change_%"],
+                ascending=[True, False],
+            )
             .to_string(index=False)
         )
 
