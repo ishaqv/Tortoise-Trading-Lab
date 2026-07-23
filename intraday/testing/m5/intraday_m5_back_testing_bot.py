@@ -1060,8 +1060,6 @@ def print_core_performance(df):
     avg_win = df[df["R"] > 0]["R"].mean() if wins > 0 else 0
     avg_loss = df[df["R"] < 0]["R"].mean() if losses > 0 else 0
     expectancy = df["R"].mean()
-    r_std = df["R"].std()
-    sharpe_r = expectancy / r_std if r_std > 0 else 0  # R-based Sharpe
 
     gross_profit = df[df["PnL"] > 0]["PnL"].sum()
     gross_loss = abs(df[df["PnL"] < 0]["PnL"].sum())
@@ -1079,8 +1077,6 @@ def print_core_performance(df):
     print(f"  Avg Loss (R)        : {avg_loss:.1f}")
     print(f"  Win/Loss Ratio      : {avg_win_loss_ratio:.1f}")
     print(f"  Expectancy (R)      : {expectancy:.1f}")
-    print(f"  R Std Dev           : {r_std:.1f}")
-    print(f"  Sharpe (R-based)    : {sharpe_r:.1f}")
     print(f"  Profit Factor       : {profit_factor:.1f}")
     print(f"  Total R             : {df['R'].sum():.1f}")
     print(f"  Total PnL (₹)       : ₹{df['PnL'].sum():,.0f}")
@@ -1091,12 +1087,12 @@ def print_core_performance(df):
         "Metric": [
             "Total Trades", "Wins", "Losses", "Breakevens", "Win Rate (%)",
             "Avg Win (R)", "Avg Loss (R)", "Win/Loss Ratio", "Expectancy (R)",
-            "R Std Dev", "Sharpe (R-based)", "Profit Factor", "Total R", "Total PnL (INR)"
+            "Profit Factor", "Total R", "Total PnL (INR)"
         ],
         "Value": [
             total_trades, wins, losses, breakevens, round(win_rate * 100, 1),
             round(avg_win, 1), round(avg_loss, 1), round(avg_win_loss_ratio, 1),
-            round(expectancy, 1), round(r_std, 1), round(sharpe_r, 1),
+            round(expectancy, 1),
             round(profit_factor, 1), round(df["R"].sum(), 1), round(df["PnL"].sum(), 0)
         ]
     }
@@ -1108,22 +1104,10 @@ def print_risk_metrics(df):
     max_dd_r = df["DD_R"].min()
     max_dd_amt = df["DD_PnL"].min()
     max_dd_pct = df["Drawdown_%"].min()
-    avg_dd_pct = df[df["DD_PnL"] < 0]["Drawdown_%"].mean()
 
     total_r = df["R"].sum()
     recovery_factor = total_r / abs(max_dd_r) if max_dd_r != 0 else 0
     max_losing_streak = calculate_max_losing_streak(df)
-
-    # CAGR estimate based on equity curve
-    start_eq = df["Equity"].iloc[0]
-    end_eq = df["Equity"].iloc[-1]
-    start_date = df["Entry Time"].iloc[0]
-    end_date = df["Entry Time"].iloc[-1]
-    years = max((end_date - start_date).days / 365.25, 1e-6)
-    cagr = ((end_eq / start_eq) ** (1 / years) - 1) * 100
-
-    # Calmar = CAGR / |MaxDD%|
-    calmar = cagr / abs(max_dd_pct) if max_dd_pct != 0 else 0
 
     print("\n=======================================================")
     print("  RISK METRICS")
@@ -1131,23 +1115,19 @@ def print_risk_metrics(df):
     print(f"  Max Drawdown (R)    : {max_dd_r:.1f}")
     print(f"  Max Drawdown (₹)    : ₹{max_dd_amt:,.0f}")
     print(f"  Max Drawdown (%)    : {max_dd_pct:.1f}%")
-    print(f"  Avg Drawdown (%)    : {avg_dd_pct:.1f}%")
     print(f"  Recovery Factor     : {recovery_factor:.1f}")
-    print(f"  CAGR                : {cagr:.1f}%")
-    print(f"  Calmar Ratio        : {calmar:.1f}")
     print(f"  Max Losing Streak   : {max_losing_streak}")
 
     # CSV export
     os.makedirs(REPORT_FOLDER, exist_ok=True)
     metrics = {
         "Metric": [
-            "Max Drawdown (R)", "Max Drawdown (INR)", "Max Drawdown (%)", "Avg Drawdown (%)",
-            "Recovery Factor", "CAGR (%)", "Calmar Ratio", "Max Losing Streak"
+            "Max Drawdown (R)", "Max Drawdown (INR)", "Max Drawdown (%)",
+            "Recovery Factor", "Max Losing Streak"
         ],
         "Value": [
             round(max_dd_r, 1), round(max_dd_amt, 0), round(max_dd_pct, 1),
-            round(avg_dd_pct, 1), round(recovery_factor, 1), round(cagr, 1),
-            round(calmar, 1), max_losing_streak
+            round(recovery_factor, 1), max_losing_streak
         ]
     }
     pd.DataFrame(metrics).to_csv(os.path.join(REPORT_FOLDER, "risk_metrics.csv"), index=False)
@@ -1305,7 +1285,6 @@ def print_yearly_summary(df):
 def print_trade_quality(df):
     avg_mfe = df["MaxR_Execution"].mean()
     avg_mae = df["MAE_R"].mean()  # Expected negative for LONG (adverse = downside)
-    avg_mae_abs = abs(avg_mae)
     avg_dur = df["Duration_Minutes"].mean()
     avg_mfe_full = df["MaxR_FullDay"].mean()
 
@@ -1321,7 +1300,6 @@ def print_trade_quality(df):
     print(f"  Avg MFE (execution) : +{avg_mfe:.1f} R  (best upside seen while in trade)")
     print(f"  Avg MFE (full day)  : +{avg_mfe_full:.1f} R  (best upside available whole day)")
     print(f"  Avg MAE             : {avg_mae:.1f} R  (avg worst drawdown vs entry)")
-    print(f"  Avg |MAE|           : {avg_mae_abs:.1f} R")
     print(f"  % Trades MAE > 0.5R : {pct_mae_beyond_half_r:.1f}%  (stop stress indicator)")
     print(f"  Avg Duration (min)  : {avg_dur:.1f}")
     print(f"  Capture Efficiency  : {efficiency:.1f}%")
@@ -1330,11 +1308,11 @@ def print_trade_quality(df):
     os.makedirs(REPORT_FOLDER, exist_ok=True)
     metrics = {
         "Metric": [
-            "Avg MFE Execution (R)", "Avg MFE Full Day (R)", "Avg MAE (R)", "Avg |MAE| (R)",
+            "Avg MFE Execution (R)", "Avg MFE Full Day (R)", "Avg MAE (R)",
             "% Trades MAE > 0.5R", "Avg Duration (min)", "Capture Efficiency (%)"
         ],
         "Value": [
-            round(avg_mfe, 1), round(avg_mfe_full, 1), round(avg_mae, 1), round(avg_mae_abs, 1),
+            round(avg_mfe, 1), round(avg_mfe_full, 1), round(avg_mae, 1),
             round(pct_mae_beyond_half_r, 1), round(avg_dur, 1), round(efficiency, 1)
         ]
     }
