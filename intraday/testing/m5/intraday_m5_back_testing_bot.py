@@ -154,7 +154,7 @@ def process_symbol(
         instrument_token,
         exit_model=ExitModel.STATIC,
         partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
-        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 2.75,
+        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 2,
         atr_entry_buffer=0.01
 ):
     ENTRY_LOOKAHEAD_CANDLES = 15
@@ -390,6 +390,13 @@ def process_symbol(
                 pnl_r = None
                 trade_status = None
 
+                # T1 = partial/first target, T2 = final target.
+                # Tracked independently of trade_status/exit reason so we
+                # can report "hit T2", "hit T1 but not T2", "never hit T1"
+                # regardless of how/where the trade eventually exited.
+                t1_hit = False
+                t2_hit = False
+
                 # ==========================================================
                 # DYNAMIC STATE VARIABLES
                 # ==========================================================
@@ -490,6 +497,12 @@ def process_symbol(
                                 INTRADAY_M5_TARGET_MULTIPLIER
                             )
 
+                            # STATIC model has only one target, which sits
+                            # at the same R multiple as T1 in the dynamic
+                            # model. There is no separate T2 leg here.
+                            t1_hit = True
+                            t2_hit = False
+
                             trade_status = "Win"
 
                             exit_time = dt
@@ -554,6 +567,7 @@ def process_symbol(
                             if partial_hit:
 
                                 partial_booked = True
+                                t1_hit = True
 
                                 realized_r += (
                                         booked_position *
@@ -593,35 +607,6 @@ def process_symbol(
                         else:
 
                             # ----------------------------------------------
-                            # SWING TRAILING
-                            # ----------------------------------------------
-
-                            if i >= 2:
-
-                                prev_row = df_post_entry.iloc[i - 1]
-
-                                if is_long:
-
-                                    swing_low = prev_row["low"] - 0.1 * atr
-
-                                    new_stop = max(
-                                        trailing_stop,
-                                        swing_low
-                                    )
-
-                                else:
-
-                                    swing_high = prev_row["high"] + 0.1 * atr
-
-                                    new_stop = min(
-                                        trailing_stop,
-                                        swing_high
-                                    )
-
-                                # ACTIVE NEXT CANDLE ONLY
-                                pending_trailing_stop = new_stop
-
-                            # ----------------------------------------------
                             # EXIT CHECKS
                             # ----------------------------------------------
 
@@ -648,6 +633,8 @@ def process_symbol(
                             # INTRABAR PRIORITY: FINAL TARGET FIRST
 
                             if final_target_hit:
+
+                                t2_hit = True
 
                                 realized_r += (
                                         remaining_position *
@@ -879,6 +866,11 @@ def process_symbol(
                     "MAE_R": round(mae_r, 1),
 
                     "Status": trade_status,
+
+                    # Target-hit flags (see "TRADE STATE" section above for
+                    # exactly where each is set).
+                    "T1_Hit": t1_hit,
+                    "T2_Hit": t2_hit,
 
                     # Gross PnL (before costs) vs Net PnL (after slippage
                     # cost + flat round-trip brokerage/STT/other charges).
@@ -1350,6 +1342,84 @@ def print_trade_quality(df):
     print(f"  [CSV] trade_quality.csv saved.")
 
 
+def print_target_hit_summary(df):
+    """
+    Breaks trades into three mutually exclusive buckets based on which
+    target(s) they reached before exiting, regardless of the final exit
+    reason (target / trailing-stop / SL / EOD):
+
+      - Hit T2            : reached the final target (T1 was necessarily
+                             hit first, since T2 only fires after partial)
+      - Hit T1, not T2     : reached partial target but exited (SL/trail/EOD)
+                             before ever reaching the final target
+      - Never hit T1       : stopped out / closed at EOD without even
+                             reaching the first target
+    """
+    total = len(df)
+
+    if total == 0:
+        print("\nNo trades to summarize for target-hit stats.")
+        return
+
+    hit_t2 = df["T2_Hit"] == True
+    hit_t1_only = (df["T1_Hit"] == True) & (df["T2_Hit"] == False)
+    hit_neither = df["T1_Hit"] == False
+
+    n_t2 = int(hit_t2.sum())
+    n_t1_only = int(hit_t1_only.sum())
+    n_neither = int(hit_neither.sum())
+
+    def _avg_r(mask):
+        return round(df.loc[mask, "R"].mean(), 2) if mask.any() else 0.0
+
+    def _avg_dur(mask):
+        return round(df.loc[mask, "Duration_Minutes"].mean(), 1) if mask.any() else 0.0
+
+    def _win_rate(mask):
+        return round((df.loc[mask, "R"] > 0).mean() * 100, 1) if mask.any() else 0.0
+
+    avg_r_t2 = _avg_r(hit_t2)
+    avg_r_t1_only = _avg_r(hit_t1_only)
+    avg_r_neither = _avg_r(hit_neither)
+
+    avg_dur_t2 = _avg_dur(hit_t2)
+    avg_dur_t1_only = _avg_dur(hit_t1_only)
+    avg_dur_neither = _avg_dur(hit_neither)
+
+    wr_t1_only = _win_rate(hit_t1_only)
+
+    print("\n=======================================================")
+    print("  TARGET HIT SUMMARY (T1 = partial target, T2 = final target)")
+    print("=======================================================")
+    print(f"  Total Trades         : {total}")
+    print(
+        f"  Hit T2               : {n_t2}  ({n_t2 / total * 100:.1f}%)  |  Avg R: {avg_r_t2:+.2f}  |  Avg Dur: {avg_dur_t2:.1f} min")
+    print(
+        f"  Hit T1, not T2       : {n_t1_only}  ({n_t1_only / total * 100:.1f}%)  |  Avg R: {avg_r_t1_only:+.2f}  |  Avg Dur: {avg_dur_t1_only:.1f} min  |  WinRate: {wr_t1_only:.1f}%")
+    print(
+        f"  Never hit T1         : {n_neither}  ({n_neither / total * 100:.1f}%)  |  Avg R: {avg_r_neither:+.2f}  |  Avg Dur: {avg_dur_neither:.1f} min")
+
+    # CSV export
+    os.makedirs(REPORT_FOLDER, exist_ok=True)
+    summary = pd.DataFrame({
+        "Bucket": ["Hit T2", "Hit T1, not T2", "Never hit T1", "Total"],
+        "Trades": [n_t2, n_t1_only, n_neither, total],
+        "Pct": [
+            round(n_t2 / total * 100, 1),
+            round(n_t1_only / total * 100, 1),
+            round(n_neither / total * 100, 1),
+            100.0,
+        ],
+        "Avg_R": [avg_r_t2, avg_r_t1_only, avg_r_neither, round(df["R"].mean(), 2)],
+        "Avg_Duration_Minutes": [
+            avg_dur_t2, avg_dur_t1_only, avg_dur_neither,
+            round(df["Duration_Minutes"].mean(), 1),
+        ],
+    })
+    summary.to_csv(os.path.join(REPORT_FOLDER, "target_hit_summary.csv"), index=False)
+    print(f"  [CSV] target_hit_summary.csv saved.")
+
+
 def plot_real_equity(df):
     os.makedirs(REPORT_FOLDER, exist_ok=True)
 
@@ -1421,6 +1491,7 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
     print_r_distribution(df)
     print_rolling_stats(df)
     print_trade_quality(df)
+    print_target_hit_summary(df)
     print_setup_summary(df)
     print_yearly_summary(df)
 

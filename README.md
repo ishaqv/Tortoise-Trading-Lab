@@ -315,9 +315,11 @@ High** via Google Finance and use it as the entry price.
 ### ⚠️ Important
 
 ```
-No strategy is perfect. Some trades will reverse after hitting T1, reducing the profit on the remaining position. Other
-trades will continue trending strongly and reach T2, resulting in significantly larger gains.
-Choose the strategy that best fits your personality, risk tolerance, and trading style. You must be mentally prepared for both outcomes and avoid judging the strategy based on a few trades.
+No strategy is perfect. Some trades will reverse after reaching T1, reducing the profit on the remaining position, while others will continue trending strongly and reach T2, resulting in significantly larger gains.
+
+Choose the approach that best matches your personality, risk tolerance, and trading style. Whatever you choose, be mentally prepared for both outcomes and avoid judging the strategy based on just a few trades.
+
+As a general guideline, consider using a partial exit strategy when you observe sustained buying demand—for example, multiple high-volume candles trading well above the average volume—as this can indicate a strong trend with the potential for further upside.
 ```
 
 ![LIMIT SELL.png](LIMIT%20SELL.png)
@@ -364,7 +366,7 @@ Choose the strategy that best fits your personality, risk tolerance, and trading
 
 ---
 
-### Dynaic Target - 50% at 3.5R and 50% at 10R
+### Partial Exit Target - 50% at 3.5R and 50% at 7R (2 * T1 )
 
 | Category              | Metric              | Value      |
 |-----------------------|---------------------|------------|
