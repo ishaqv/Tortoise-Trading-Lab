@@ -22,11 +22,151 @@ INTERVAL = "5minute"
 DAYS = 100  # Max allowed per Kite API
 DATA_FOLDER = f"data/{INTERVAL}"
 REPORT_FOLDER = "reports"
-ENTRY_SLIPPAGE_ATR_MULT = 0.1
-SL_EXIT_SLIPPAGE_ATR_MULT = 0.1
 # Flat round-trip cost (brokerage + STT + other statutory charges), in ₹,
 # charged once per completed trade (entry + exit combined).
-ROUND_TRIP_COST = 845
+
+entry_slippage_bp = 2
+stop_slippage_bp = 5
+exit_model = ExitModel.DYNAMIC
+R = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
+# ==========================================================
+# Dynamic Round Trip Cost Calculator
+# ==========================================================
+
+# ----------------------------
+# CONFIGURATION
+# ----------------------------
+
+# ==========================================================
+# NSE Equity Intraday Charges
+# ==========================================================
+
+NSE_EQUITY_INTRADAY_CHARGES = {
+
+    # Brokerage
+    "brokerage_rate": 0.0003,  # 0.03%
+    "brokerage_cap": 20.0,  # ₹20/order
+
+    # Taxes & Charges
+    "stt": 0.00025,  # Sell side only
+    "exchange": 0.0000345,  # NSE transaction charges
+    "sebi": 0.000001,  # ₹10 / crore
+    "stamp": 0.00003,  # Buy side only
+    "gst": 0.18,
+
+}
+
+
+def calculate_round_trip_cost(
+        entry_price: float,
+        exit_price: float,
+        quantity: int):
+    """
+    Calculate complete round-trip trading costs.
+
+    Parameters
+    ----------
+    entry_price : float
+    exit_price  : float
+    quantity    : int
+
+
+    Returns
+    -------
+    dict
+    """
+
+    buy_value = entry_price * quantity
+    sell_value = exit_price * quantity
+
+    turnover = buy_value + sell_value
+
+    # --------------------------------------------------
+    # Brokerage
+    # --------------------------------------------------
+
+    brokerage_buy = min(
+        NSE_EQUITY_INTRADAY_CHARGES["brokerage_cap"],
+        buy_value * NSE_EQUITY_INTRADAY_CHARGES["brokerage_rate"]
+    )
+
+    brokerage_sell = min(
+        NSE_EQUITY_INTRADAY_CHARGES["brokerage_cap"],
+        sell_value * NSE_EQUITY_INTRADAY_CHARGES["brokerage_rate"]
+    )
+
+    brokerage = brokerage_buy + brokerage_sell
+
+    # --------------------------------------------------
+    # STT (Sell side only)
+    # --------------------------------------------------
+
+    stt = sell_value * NSE_EQUITY_INTRADAY_CHARGES["stt"]
+
+    # --------------------------------------------------
+    # Exchange Charges
+    # --------------------------------------------------
+
+    exchange = turnover * NSE_EQUITY_INTRADAY_CHARGES["exchange"]
+
+    # --------------------------------------------------
+    # SEBI Charges
+    # --------------------------------------------------
+
+    sebi = turnover * NSE_EQUITY_INTRADAY_CHARGES["sebi"]
+
+    # --------------------------------------------------
+    # Stamp Duty (Buy side only)
+    # --------------------------------------------------
+
+    stamp = buy_value * NSE_EQUITY_INTRADAY_CHARGES["stamp"]
+
+    # --------------------------------------------------
+    # GST
+    # GST applies only to Brokerage + Exchange Charges
+    # --------------------------------------------------
+
+    gst = (
+                  brokerage +
+                  exchange
+          ) * NSE_EQUITY_INTRADAY_CHARGES["gst"]
+
+    # --------------------------------------------------
+    # Total
+    # --------------------------------------------------
+
+    total = (
+            brokerage +
+            stt +
+            exchange +
+            sebi +
+            stamp +
+            gst
+    )
+
+    return {
+
+        "buy_value": round(buy_value, 2),
+
+        "sell_value": round(sell_value, 2),
+
+        "turnover": round(turnover, 2),
+
+        "brokerage": round(brokerage, 2),
+
+        "stt": round(stt, 2),
+
+        "exchange": round(exchange, 2),
+
+        "sebi": round(sebi, 2),
+
+        "stamp": round(stamp, 2),
+
+        "gst": round(gst, 2),
+
+        "total": round(total, 2)
+
+    }
 
 
 def _slip_atr(row_atr, fallback_atr):
@@ -52,12 +192,12 @@ def get_file_path(symbol):
     return os.path.join(DATA_FOLDER, f"NSE_{symbol}.csv")
 
 
-def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=None, num_years=None):
+def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=None, num_years=3):
     """
     Fetch historical OHLCV data. Two modes:
-      - Specify from_year & to_year  → fetches that exact range  (e.g. from_year=2026, to_year=2026)
-      - Specify num_years            → fetches last N years from today (e.g. num_years=10)
-      - Neither specified            → defaults to last 10 years
+      - Specify from_year & to_year  → fetches that exact range  (e.g. from_year=2022, to_year=2026)
+      - Specify num_years            → fetches last N years from today (default: last 3 years — older
+        data is treated as less relevant since market microstructure/liquidity regimes shift over time)
     """
     kite = get_kite()
     to_day = datetime.today()
@@ -129,30 +269,30 @@ def fetch_back_testing_data(symbol, instrument_token, from_year=None, to_year=No
 
 
 def compute_quantity(entry_price, risk_per_share):
-    # Buying power (equity × leverage)
+    # Buying power (equity × leverage). INTRADAY_LEVERAGE_MULTIPLIER already
+    # has the 5% undeployed-cash policy baked in (e.g. 5x * 0.95 = 4.75) —
+    # do not apply an additional buffer here, that would double-count it.
     buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
 
-    # REAL risk (based on equity)
-    risk_amount = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
-
-    # Risk-based qty
-    risk_based_qty = risk_amount / risk_per_share
+    # REAL risk (based on equity) — the fixed "1R" unit, defined once at
+    # module level as R = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT.
+    risk_based_qty = R / risk_per_share
 
     # Capital-based qty (using leverage)
     capital_based_qty = buying_power / entry_price
 
+    is_leverage_constrained = capital_based_qty < risk_based_qty
     tradable_qty = min(risk_based_qty, capital_based_qty)
 
     # Quantity is rounded to the nearest 5 for convenience.
     if tradable_qty > 5:
         tradable_qty = round(tradable_qty / 5.0) * 5
-    return tradable_qty
+    return tradable_qty, is_leverage_constrained
 
 
 def process_symbol(
         symbol,
         instrument_token,
-        exit_model=ExitModel.STATIC,
         partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
         final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 2,
         atr_entry_buffer=0.01
@@ -168,7 +308,7 @@ def process_symbol(
     file_path = get_file_path(symbol)
 
     if not os.path.isfile(file_path) or os.path.getsize(file_path) == 0:
-        fetch_back_testing_data(symbol, instrument_token, 2022, 2026)
+        fetch_back_testing_data(symbol, instrument_token, num_years=5)
 
     df = pd.read_csv(file_path)
 
@@ -289,7 +429,8 @@ def process_symbol(
                             getattr(row, "atr", None), atr
                         )
                         entry_slippage_per_share = (
-                                ENTRY_SLIPPAGE_ATR_MULT * entry_bar_atr
+                                entry_price * entry_slippage_bp / 10000
+
                         )
 
                         triggered_time = row.trade_date
@@ -318,7 +459,7 @@ def process_symbol(
                 if risk <= 0:
                     continue
 
-                qty = compute_quantity(entry_price, risk)
+                qty, _ = compute_quantity(entry_price, risk)
 
                 # Exit-side slippage cost (per share), only ever set when
                 # the trade actually exits via a stop-loss / trailing stop.
@@ -520,7 +661,7 @@ def process_symbol(
                                 getattr(row, "atr", None), atr
                             )
                             exit_slippage_per_share = (
-                                    SL_EXIT_SLIPPAGE_ATR_MULT * exit_bar_atr
+                                    exit_price * stop_slippage_bp / 10000
                             )
 
                             trade_status = "Loss"
@@ -590,7 +731,7 @@ def process_symbol(
                                     getattr(row, "atr", None), atr
                                 )
                                 exit_slippage_per_share = (
-                                        SL_EXIT_SLIPPAGE_ATR_MULT * exit_bar_atr
+                                        exit_price * stop_slippage_bp / 10000
                                 )
 
                                 trade_status = "Loss"
@@ -660,7 +801,7 @@ def process_symbol(
                                     getattr(row, "atr", None), atr
                                 )
                                 exit_slippage_per_share = (
-                                        SL_EXIT_SLIPPAGE_ATR_MULT * exit_bar_atr
+                                        exit_price * stop_slippage_bp / 10000
                                 )
 
                                 if is_long:
@@ -841,6 +982,8 @@ def process_symbol(
                 # STORE RESULT
                 # ==========================================================
 
+                ROUND_TRIP_COST = calculate_round_trip_cost(entry_price, exit_price, qty).get(
+                    "total")
                 result.update({
 
                     "Window": window["name"],
@@ -878,6 +1021,7 @@ def process_symbol(
                     # the clean signal price — slippage only hits the
                     # rupee P&L, never the trade geometry.
                     "Gross PnL": round(pnl_r * risk * qty, 2),
+
 
                     "SlippagePerShare": round(
                         entry_slippage_per_share + exit_slippage_per_share, 4
@@ -952,76 +1096,141 @@ def process_symbol(
 # =========================================================
 
 def apply_dynamic_compounding(df,
-                              starting_capital=TRADING_CAPITAL,
-                              max_risk_pct=MAX_RISK_PER_TRADE_PERCENT,
-                              leverage=INTRADAY_LEVERAGE_MULTIPLIER):
+                              starting_capital=TRADING_CAPITAL):
     """
-    Static capital simulation — position size is fixed based on TRADING_CAPITAL
-    throughout the entire backtest. Capital is never updated between trades.
+    Position-sized R simulation.
 
-    This is intentional: we care about RAW SETUP EDGE (R stats, win rate,
-    expectancy, profit factor) not compounded ₹ growth. Static sizing keeps
-    ₹ PnL linear with Total R, making it easy to sanity-check.
+    qty comes from `compute_quantity()` — the exact same sizing function
+    used in process_symbol/live trading — so the backtest's quantity and
+    capital cap can never drift out of sync with the live path. The
+    `starting_capital`/`max_risk_pct`/`leverage` args are kept for
+    signature compatibility, but the actual "1R" unit used everywhere in
+    this function is the module-level global `R = TRADING_CAPITAL *
+    MAX_RISK_PER_TRADE_PERCENT` (defined once near the top of the file),
+    not these arguments — pass non-default values here only if you've
+    also overridden the corresponding globals, otherwise they're ignored.
+    Note INTRADAY_LEVERAGE_MULTIPLIER already has the 5% undeployed-cash
+    policy priced in (e.g. 5x leverage × 0.95 = 4.75) — don't apply an
+    additional buffer on top of it anywhere in this pipeline.
 
-    ₹ PnL per trade = R × fixed_risk_per_trade (in rupees), net of:
-      - slippage cost = SlippagePerShare × qty (entry slippage always,
-        exit/SL slippage only when the trade actually exited via a
-        stop/trailing-stop — R and target/SL geometry stay clean)
-      - a flat ROUND_TRIP_COST (brokerage + STT + other charges) charged
-        once per completed trade.
+    What changes: `R` (the per-trade multiple, stored in df["R"]) is now
+    `net trade PnL / R` (the global constant) — normalized against actual
+    capital at risk AND net of costs, not the theoretical price-based
+    multiple. The raw price-based R coming into this function (row["R"])
+    assumes you always got the full risk_based_qty (i.e. the full global
+    R actually on the line) and ignores slippage/brokerage. Whenever
+    capital_based_qty caps the position below that, or costs eat into the
+    trade, the resulting df["R"] reflects that — a full stop-out
+    shouldn't count as a full -1R if you didn't really have the full R on,
+    and shouldn't count as exactly -1R even when you did, once costs are
+    included.
+
+    Example: R (global) = ₹12,500, but this trade could only take a
+    position risking ₹6,250 (half size, capital-constrained). Stop hit →
+    gross loss ₹6,250, minus slippage/brokerage → net loss e.g. ₹6,845 →
+    reported df["R"] = -6,845 / 12,500 = -0.55 (not -1, not -0.5 either —
+    costs are baked in too).
+
+    Using net PnL (not gross) is deliberate: it's what makes every
+    R-based stat tie out EXACTLY to its ₹ counterpart via the single
+    global R constant — Total_R × R == Total_PnL, DD_R × R == DD_PnL at
+    every point on the equity curve, Expectancy(R) × trade_count × R ==
+    Total_PnL. Using gross PnL here would silently reintroduce a
+    gross/net mismatch (R and ₹ drawdown would stop reconciling). The
+    original, uncapped, pre-cost price-based R is preserved in
+    `R_Theoretical` for reference (raw setup quality, independent of
+    capital and costs), and `Leverage_Constrained` flags which trades
+    were capital-capped.
+
+    ₹ PnL per trade = price-based R × qty × risk_per_share, net of:
+      - slippage cost = SlippagePerShare × qty
+      - a flat ROUND_TRIP_COST (brokerage + STT + other charges)
     """
-    risk_amount = starting_capital * max_risk_pct
-    buying_power = starting_capital * leverage
-
     pnl_list = []
     gross_pnl_list = []
+    r_position_sized_list = []
     cum_r = []
     equity = []
+    leverage_constrained_list = []
+    slippage_cost_list = []
+    round_trip_cost_list = []
     r_total = 0
     running_pnl = 0
 
     for _, row in df.iterrows():
         risk_per_share = row["RiskPerShare"]
+        ROUND_TRIP_COST = row["RoundTripCost"]
         entry_price = row["Entry"]
         slippage_per_share = row.get("SlippagePerShare", 0)
+        price_based_r = row["R"]
 
         if risk_per_share <= 0:
             pnl_list.append(0)
             gross_pnl_list.append(0)
+            r_position_sized_list.append(0)
             cum_r.append(r_total)
             equity.append(starting_capital + running_pnl)
+            leverage_constrained_list.append(False)
+            slippage_cost_list.append(0)
+            round_trip_cost_list.append(0)
             continue
 
-        risk_based_qty = risk_amount / risk_per_share
-        capital_based_qty = buying_power / entry_price
-        qty = int(min(risk_based_qty, capital_based_qty))
+        # Use the SAME sizing function as process_symbol/live trading —
+        # single source of truth for qty, including round-to-nearest-5.
+        # NOTE: compute_quantity reads TRADING_CAPITAL / MAX_RISK_PER_TRADE_PERCENT /
+        # INTRADAY_LEVERAGE_MULTIPLIER directly from module globals, not from
+        # this function's starting_capital/max_risk_pct/leverage arguments —
+        # those globals are the defaults for this function too, so they
+        # agree unless this function is called with overridden values for a
+        # what-if scenario.
+        qty, is_leverage_constrained = compute_quantity(entry_price, risk_per_share)
+        qty = int(qty)
 
         if qty <= 0:
             pnl_list.append(0)
             gross_pnl_list.append(0)
+            r_position_sized_list.append(0)
             cum_r.append(r_total)
             equity.append(starting_capital + running_pnl)
+            leverage_constrained_list.append(is_leverage_constrained)
+            slippage_cost_list.append(0)
+            round_trip_cost_list.append(0)
             continue
 
-        gross_trade_pnl = row["R"] * qty * risk_per_share
-        trade_pnl = (
-                gross_trade_pnl
-                - (slippage_per_share * qty)
-                - ROUND_TRIP_COST
-        )
+        slippage_cost = slippage_per_share * qty
+        gross_trade_pnl = price_based_r * qty * risk_per_share
+        trade_pnl = gross_trade_pnl - slippage_cost - ROUND_TRIP_COST
 
-        r_total += row["R"]
+        # R-multiple = actual net ₹ PnL / the global R unit. Net (not
+        # gross), so every R-based stat ties out exactly to its ₹
+        # counterpart via this one constant: Total_R x R == Total_PnL,
+        # DD_R x R == DD_PnL, Expectancy(R) x trades x R == Total_PnL.
+        # (Using gross_trade_pnl here instead would silently reintroduce
+        # the gross/net mismatch that made MaxDD_R and MaxDD_PnL not
+        # reconcile.)
+        position_sized_r = trade_pnl / R
+
+        r_total += position_sized_r
         running_pnl += trade_pnl
 
         pnl_list.append(trade_pnl)
         gross_pnl_list.append(gross_trade_pnl)
+        r_position_sized_list.append(position_sized_r)
         cum_r.append(r_total)
         equity.append(starting_capital + running_pnl)
+        leverage_constrained_list.append(is_leverage_constrained)
+        slippage_cost_list.append(slippage_cost)
+        round_trip_cost_list.append(ROUND_TRIP_COST)
 
     df["Gross_PnL"] = gross_pnl_list
     df["PnL"] = pnl_list
+    df["R_Theoretical"] = df["R"]
+    df["R"] = r_position_sized_list
     df["Cum_R"] = cum_r
     df["Equity"] = equity
+    df["Leverage_Constrained"] = leverage_constrained_list
+    df["SlippageCost_Actual"] = slippage_cost_list
+    df["RoundTripCost_Actual"] = round_trip_cost_list
 
     # ₹ drawdown
     df["Equity_Peak"] = df["Equity"].cummax()
@@ -1051,7 +1260,52 @@ def calculate_max_losing_streak(df):
     return max_streak
 
 
-def print_core_performance(df):
+def calculate_max_winning_streak(df):
+    max_streak = 0
+    current = 0
+    for r in df["R"]:
+        if r > 0:
+            current += 1
+            max_streak = max(max_streak, current)
+        else:
+            current = 0
+    return max_streak
+
+
+def calculate_max_dd_duration_days(df):
+    """Longest stretch (calendar days) the equity curve spent below a
+    prior peak before making a new high — i.e. how long you'd go
+    without a fresh account high. Recovery Factor alone tells you
+    magnitude of DD vs total edge, not how long you're stuck."""
+    equity = df["Equity"]
+    peak = equity.cummax()
+    underwater = equity < peak
+    dates = df["Entry Time"]
+
+    max_duration_days = 0
+    streak_start = None
+
+    for i in range(len(df)):
+        if underwater.iloc[i]:
+            if streak_start is None:
+                streak_start = dates.iloc[i - 1] if i > 0 else dates.iloc[i]
+        else:
+            if streak_start is not None:
+                max_duration_days = max(max_duration_days, (dates.iloc[i] - streak_start).days)
+                streak_start = None
+
+    if streak_start is not None:
+        max_duration_days = max(max_duration_days, (dates.iloc[-1] - streak_start).days)
+
+    return max_duration_days
+
+
+def print_key_metrics_table(df, window=20):
+    """
+    Single consolidated table of every decision-relevant metric.
+    Replaces the old scattered CORE PERFORMANCE / RISK METRICS /
+    TRADE QUALITY / ROLLING STATS sections.
+    """
     total_trades = len(df)
     wins = (df["R"] > 0).sum()
     losses = (df["R"] < 0).sum()
@@ -1059,135 +1313,141 @@ def print_core_performance(df):
     win_rate = wins / total_trades if total_trades > 0 else 0
     avg_win = df[df["R"] > 0]["R"].mean() if wins > 0 else 0
     avg_loss = df[df["R"] < 0]["R"].mean() if losses > 0 else 0
+    avg_win_loss_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else float("inf")
     expectancy = df["R"].mean()
+    best_trade_r = df["R"].max()
+    worst_trade_r = df["R"].min()
+
+    # Theoretical (pre-leverage-scaling) win/loss — what the setup itself
+    # achieves in clean price terms, before position sizing shrinks it.
+    # If this differs sharply from Avg Win/Loss (R) above, that gap is
+    # driven by leverage/capital constraints (see % Trades
+    # Leverage-Constrained), not the setup's underlying edge.
+    has_theoretical = "R_Theoretical" in df.columns
+    avg_win_theoretical = df[df["R_Theoretical"] > 0][
+        "R_Theoretical"].mean() if has_theoretical and wins > 0 else float("nan")
+    avg_loss_theoretical = df[df["R_Theoretical"] < 0][
+        "R_Theoretical"].mean() if has_theoretical and losses > 0 else float("nan")
 
     gross_profit = df[df["PnL"] > 0]["PnL"].sum()
     gross_loss = abs(df[df["PnL"] < 0]["PnL"].sum())
     profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf")
 
-    avg_win_loss_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else float("inf")
-
-    print("\n=======================================================")
-    print("  CORE PERFORMANCE")
-    print("=======================================================")
-    print(f"  Total Trades        : {total_trades}")
-    print(f"  Wins / Losses / BE  : {wins} / {losses} / {breakevens}")
-    print(f"  Win Rate            : {win_rate:.1%}")
-    print(f"  Avg Win (R)         : {avg_win:.1f}")
-    print(f"  Avg Loss (R)        : {avg_loss:.1f}")
-    print(f"  Win/Loss Ratio      : {avg_win_loss_ratio:.1f}")
-    print(f"  Expectancy (R)      : {expectancy:.1f}")
-    print(f"  Profit Factor       : {profit_factor:.1f}")
-    print(f"  Total R             : {df['R'].sum():.1f}")
-    print(f"  Total PnL (₹)       : ₹{df['PnL'].sum():,.0f}")
-
-    # CSV export
-    os.makedirs(REPORT_FOLDER, exist_ok=True)
-    metrics = {
-        "Metric": [
-            "Total Trades", "Wins", "Losses", "Breakevens", "Win Rate (%)",
-            "Avg Win (R)", "Avg Loss (R)", "Win/Loss Ratio", "Expectancy (R)",
-            "Profit Factor", "Total R", "Total PnL (INR)"
-        ],
-        "Value": [
-            total_trades, wins, losses, breakevens, round(win_rate * 100, 1),
-            round(avg_win, 1), round(avg_loss, 1), round(avg_win_loss_ratio, 1),
-            round(expectancy, 1),
-            round(profit_factor, 1), round(df["R"].sum(), 1), round(df["PnL"].sum(), 0)
-        ]
-    }
-    pd.DataFrame(metrics).to_csv(os.path.join(REPORT_FOLDER, "core_performance.csv"), index=False)
-    print(f"  [CSV] core_performance.csv saved.")
-
-
-def print_risk_metrics(df):
     max_dd_r = df["DD_R"].min()
     max_dd_amt = df["DD_PnL"].min()
     max_dd_pct = df["Drawdown_%"].min()
-
     total_r = df["R"].sum()
     recovery_factor = total_r / abs(max_dd_r) if max_dd_r != 0 else 0
+    max_dd_duration_days = calculate_max_dd_duration_days(df)
     max_losing_streak = calculate_max_losing_streak(df)
+    max_winning_streak = calculate_max_winning_streak(df)
+
+    avg_mfe = df["MaxR_Execution"].mean()
+    avg_mfe_full = df["MaxR_FullDay"].mean()
+    avg_mae = df["MAE_R"].mean()
+    pct_mae_beyond_half_r = (df["MAE_R"] < -0.5).mean() * 100
+    avg_dur = df["Duration_Minutes"].mean()
+    efficiency = (df["MaxR_Execution"] / df["MaxR_FullDay"].replace(0, float("nan"))).mean() * 100
+
+    total_gross_pnl = df["Gross_PnL"].sum() if "Gross_PnL" in df.columns else float("nan")
+    total_cost = (total_gross_pnl - df["PnL"].sum()) if "Gross_PnL" in df.columns else float("nan")
+    cost_drag_pct = (total_cost / total_gross_pnl * 100) if total_gross_pnl not in (0, float("nan")) else float("nan")
+    pct_leverage_constrained = (
+            df["Leverage_Constrained"].mean() * 100) if "Leverage_Constrained" in df.columns else float("nan")
+
+    # df["R"] is net (post-cost) by definition now, so total_r IS the net
+    # figure. Gross R (pre-cost) needs its own calc from Gross_PnL, since
+    # it's no longer equal to df["R"].sum(). Uses the global R constant.
+    total_r_net = total_r  # alias for row-label clarity below
+    total_r_gross = (total_gross_pnl / R) if R and total_gross_pnl == total_gross_pnl else float("nan")
+
+    total_slippage_cost = df["SlippageCost_Actual"].sum() if "SlippageCost_Actual" in df.columns else float("nan")
+    total_round_trip_cost = df["RoundTripCost_Actual"].sum() if "RoundTripCost_Actual" in df.columns else float("nan")
+    participating_trades = (df["RoundTripCost_Actual"] > 0).sum() if "RoundTripCost_Actual" in df.columns else float(
+        "nan")
+    avg_cost_per_trade = (total_cost / participating_trades) if participating_trades else float("nan")
+
+    start_date = df["Entry Time"].iloc[0]
+    end_date = df["Entry Time"].iloc[-1]
+    months_span = max((end_date - start_date).days / 30.44, 1e-6)
+    trades_per_month = total_trades / months_span
+
+    if len(df) >= window:
+        rolling_exp = df["R"].rolling(window).mean().iloc[-1]
+        rolling_wr = (df["R"] > 0).rolling(window).mean().iloc[-1]
+    else:
+        rolling_exp, rolling_wr = float("nan"), float("nan")
+
+    rows = [
+        ("Performance", "Capital(₹)", f"{TRADING_CAPITAL}"),
+        ("Performance", "R(₹)", f"{R}"),
+        ("Performance", "Total Trades", f"{total_trades}"),
+        ("Performance", "Wins / Losses / BE", f"{wins} / {losses} / {breakevens}"),
+        ("Performance", "Win Rate", f"{win_rate:.1%}"),
+        ("Performance", "Avg Win (R)", f"{avg_win:.1f}"),
+        ("Performance", "Avg Win (R, Theoretical/Uncapped)",
+         f"{avg_win_theoretical:.1f}" if avg_win_theoretical == avg_win_theoretical else "n/a"),
+        ("Performance", "Avg Loss (R)", f"{avg_loss:.1f}"),
+        ("Performance", "Avg Loss (R, Theoretical/Uncapped)",
+         f"{avg_loss_theoretical:.1f}" if avg_loss_theoretical == avg_loss_theoretical else "n/a"),
+
+        ("Performance", "Win/Loss Ratio", f"{avg_win_loss_ratio:.1f}"),
+        ("Performance", "Expectancy (R)", f"{expectancy:.1f}"),
+        ("Performance", "Expectancy (₹)", f"{round(expectancy * R)}"),
+        ("Performance", "Profit Factor", f"{profit_factor:.1f}"),
+        ("Performance", "Best / Worst Trade (R)", f"{best_trade_r:.1f} / {worst_trade_r:.1f}"),
+        ("Performance", "Total R (Gross, pre-cost)",
+         f"{total_r_gross:.1f}" if total_r_gross == total_r_gross else "n/a"),
+        ("Performance", "Total R (Net, post-cost)", f"{total_r_net:.1f}"),
+        ("Performance", "Total PnL (₹, net)", f"₹{df['PnL'].sum():,.0f}"),
+        ("Risk", "Max Drawdown (R)", f"{max_dd_r:.1f}"),
+        ("Risk", "Max Drawdown (₹)", f"₹{max_dd_amt:,.0f}"),
+        ("Risk", "Max Drawdown (%)", f"{max_dd_pct:.1f}%"),
+        ("Risk", "Max DD Duration (days)", f"{max_dd_duration_days}"),
+        ("Risk", "Recovery Factor", f"{recovery_factor:.1f}"),
+        ("Risk", "Max Losing Streak", f"{max_losing_streak}"),
+        ("Risk", "Max Winning Streak", f"{max_winning_streak}"),
+        ("Trade Quality", "Avg MFE Execution (R)", f"+{avg_mfe:.1f}"),
+        ("Trade Quality", "Avg MFE Full Day (R)", f"+{avg_mfe_full:.1f}"),
+        ("Trade Quality", "Capture Efficiency", f"{efficiency:.1f}%"),
+        ("Trade Quality", "Avg MAE (R)", f"{avg_mae:.1f}"),
+        ("Trade Quality", "% Trades MAE > 0.5R", f"{pct_mae_beyond_half_r:.1f}%"),
+        ("Trade Quality", "Avg Duration (min)", f"{avg_dur:.1f}"),
+        ("Costs", "Total Flat Brokerage/STT (₹)",
+         f"₹{total_round_trip_cost:,.0f}" if total_round_trip_cost == total_round_trip_cost else "n/a"),
+        ("Costs", "Total Slippage Cost (₹)",
+         f"₹{total_slippage_cost:,.0f}" if total_slippage_cost == total_slippage_cost else "n/a"),
+        ("Costs", "Total Cost (₹)", f"₹{total_cost:,.0f}" if total_cost == total_cost else "n/a"),
+        ("Costs", "Avg Cost / Trade (₹)",
+         f"₹{avg_cost_per_trade:,.0f}" if avg_cost_per_trade == avg_cost_per_trade else "n/a"),
+        ("Costs", "Cost Drag (% of Gross PnL)", f"{cost_drag_pct:.1f}%" if cost_drag_pct == cost_drag_pct else "n/a"),
+        ("Risk", "% Trades Leverage-Constrained",
+         f"{pct_leverage_constrained:.1f}%" if "Leverage_Constrained" in df.columns else "n/a"),
+        ("Frequency", "Avg Trades / Month", f"{trades_per_month:.1f}"),
+        ("Recent Edge", f"Rolling {window}-Trade Expectancy",
+         f"{rolling_exp:.1f} R" if rolling_exp == rolling_exp else "n/a"),
+        ("Recent Edge", f"Rolling {window}-Trade Win Rate", f"{rolling_wr:.1%}" if rolling_wr == rolling_wr else "n/a"),
+    ]
+
+    table = pd.DataFrame(rows, columns=["Category", "Metric", "Value"]).drop(columns="Category")
 
     print("\n=======================================================")
-    print("  RISK METRICS")
+    print("  KEY METRICS SUMMARY")
     print("=======================================================")
-    print(f"  Max Drawdown (R)    : {max_dd_r:.1f}")
-    print(f"  Max Drawdown (₹)    : ₹{max_dd_amt:,.0f}")
-    print(f"  Max Drawdown (%)    : {max_dd_pct:.1f}%")
-    print(f"  Recovery Factor     : {recovery_factor:.1f}")
-    print(f"  Max Losing Streak   : {max_losing_streak}")
+    print(table.to_string(index=False))
 
-    # CSV export
+    # CSV export — full rolling series kept separately for charting trend
     os.makedirs(REPORT_FOLDER, exist_ok=True)
-    metrics = {
-        "Metric": [
-            "Max Drawdown (R)", "Max Drawdown (INR)", "Max Drawdown (%)",
-            "Recovery Factor", "Max Losing Streak"
-        ],
-        "Value": [
-            round(max_dd_r, 1), round(max_dd_amt, 0), round(max_dd_pct, 1),
-            round(recovery_factor, 1), max_losing_streak
-        ]
-    }
-    pd.DataFrame(metrics).to_csv(os.path.join(REPORT_FOLDER, "risk_metrics.csv"), index=False)
-    print(f"  [CSV] risk_metrics.csv saved.")
+    table.to_csv(os.path.join(REPORT_FOLDER, "key_metrics_summary.csv"), index=False)
 
-
-def print_r_distribution(df):
-    print("\n=======================================================")
-    print("  R Distribution  (LONG only)")
-    print("=======================================================")
-
-    # < -1R only possible via gap-down open through stop (realistic fill) or EOD at loss
-    buckets = {
-        "< -1R (gap)": (df["R"] < -1).sum(),
-        "-1R to 0R": ((df["R"] >= -1) & (df["R"] < 0)).sum(),
-        "0R (BE)": ((df["R"] >= -0.05) & (df["R"] <= 0.05)).sum(),
-        "0-1R": ((df["R"] > 0.05) & (df["R"] <= 1)).sum(),
-        "1-2R": ((df["R"] > 1) & (df["R"] <= 2)).sum(),
-        "2-4R": ((df["R"] > 2) & (df["R"] <= 4)).sum(),
-        "4-6R": ((df["R"] > 4) & (df["R"] <= 6)).sum(),
-        "6-8R": ((df["R"] > 6) & (df["R"] <= 8)).sum(),
-        "8-10R": ((df["R"] > 8) & (df["R"] <= 10)).sum(),
-        "10R+": (df["R"] > 10).sum()
-    }
-
-    for k, v in buckets.items():
-        print(f"  {k:18} : {v}")
-
-    # CSV export
-    os.makedirs(REPORT_FOLDER, exist_ok=True)
-    pd.DataFrame({"Bucket": list(buckets.keys()), "Count": list(buckets.values())}).to_csv(
-        os.path.join(REPORT_FOLDER, "r_distribution.csv"), index=False
-    )
-    print(f"  [CSV] r_distribution.csv saved.")
-
-
-def print_rolling_stats(df, window=20):
-    if len(df) < window:
-        print("\nNot enough trades for rolling analysis.")
-        return
-
-    rolling_exp = df["R"].rolling(window).mean().iloc[-1]
-    rolling_wr = (df["R"] > 0).rolling(window).mean().iloc[-1]
-
-    print("\n=======================================================")
-    print(f"  Rolling {window}-Trade Stats")
-    print("=======================================================")
-    print(f"  Latest Expectancy   : {rolling_exp:.1f} R")
-    print(f"  Latest Win Rate     : {rolling_wr:.1%}")
-
-    # CSV export — full rolling series for charting
-    os.makedirs(REPORT_FOLDER, exist_ok=True)
-    rolling_df = pd.DataFrame({
-        "Trade_Index": df.index,
-        "Entry_Time": df["Entry Time"].values,
-        f"Rolling_{window}_Expectancy_R": df["R"].rolling(window).mean().round(3),
-        f"Rolling_{window}_WinRate": (df["R"] > 0).rolling(window).mean().round(4),
-    })
-    rolling_df.to_csv(os.path.join(REPORT_FOLDER, "rolling_stats.csv"), index=False)
-    print(f"  [CSV] rolling_stats.csv saved.")
+    if len(df) >= window:
+        rolling_df = pd.DataFrame({
+            "Trade_Index": df.index,
+            "Entry_Time": df["Entry Time"].values,
+            f"Rolling_{window}_Expectancy_R": df["R"].rolling(window).mean().round(3),
+            f"Rolling_{window}_WinRate": (df["R"] > 0).rolling(window).mean().round(4),
+        })
+        rolling_df.to_csv(os.path.join(REPORT_FOLDER, "rolling_stats.csv"), index=False)
 
 
 def print_setup_summary(df):
@@ -1209,7 +1469,7 @@ def print_setup_summary(df):
             AvgWin_R=("R", lambda x: round(x[x > 0].mean(), 1) if (x > 0).any() else 0),
             AvgLoss_R=("R", lambda x: round(x[x < 0].mean(), 1) if (x < 0).any() else 0),
             Expectancy_R=("R", lambda x: round(x.mean(), 1)),
-            Total_R=("R", lambda x: round(x.sum(), 1)),
+            Total_R_Net=("R", lambda x: round(x.sum(), 1)),
             Total_PnL=("PnL", lambda x: round(x.sum(), 0)),
             ProfitFactor=("PnL",
                           lambda x: round(x[x > 0].sum() / abs(x[x < 0].sum()), 1)
@@ -1217,6 +1477,20 @@ def print_setup_summary(df):
         )
         .sort_values("Expectancy_R", ascending=False)
     )
+
+    # Gross R (pre-cost) needs its own calc from Gross_PnL — R itself is
+    # net now, so Total_R_Net above already ties out exactly to Total_PnL
+    # (Total_R_Net x R == Total_PnL, by construction). Gross R is shown
+    # separately purely to see the pre-cost setup quality.
+    if "Gross_PnL" in df.columns:
+        gross_pnl_by_setup = df.groupby("Setup")["Gross_PnL"].sum()
+        summary["Total_R_Gross"] = (gross_pnl_by_setup / R).round(1)
+    else:
+        summary["Total_R_Gross"] = float("nan")
+    summary = summary[[
+        "Trades", "WinRate", "AvgWin_R", "AvgLoss_R", "Expectancy_R",
+        "Total_R_Gross", "Total_R_Net", "Total_PnL", "ProfitFactor"
+    ]]
 
     # Add per-setup drawdown correctly
     summary["MaxDD_R"] = df.groupby("Setup").apply(setup_max_dd_r).round(1)
@@ -1233,7 +1507,7 @@ def print_setup_summary(df):
     # CSV export
     os.makedirs(REPORT_FOLDER, exist_ok=True)
     summary.to_csv(os.path.join(REPORT_FOLDER, "setup_summary.csv"))
-    print(f"  [CSV] setup_summary.csv saved.")
+
 
 
 def print_yearly_summary(df):
@@ -1256,7 +1530,7 @@ def print_yearly_summary(df):
             Trades=("R", "count"),
             WinRate=("R", lambda x: round((x > 0).mean() * 100, 1)),
             Expectancy_R=("R", lambda x: round(x.mean(), 1)),
-            Total_R=("R", lambda x: round(x.sum(), 1)),
+            Total_R_Net=("R", lambda x: round(x.sum(), 1)),
             Total_PnL=("PnL", lambda x: round(x.sum(), 0)),
             ProfitFactor=("PnL",
                           lambda x: round(x[x > 0].sum() / abs(x[x < 0].sum()), 1)
@@ -1264,6 +1538,18 @@ def print_yearly_summary(df):
         )
         .sort_index()
     )
+
+    # Gross R (pre-cost) from Gross_PnL — see print_setup_summary for why
+    # R itself (Total_R_Net here) already ties out exactly to Total_PnL.
+    if "Gross_PnL" in df.columns:
+        gross_pnl_by_grp = df.groupby(["Year", "Setup"])["Gross_PnL"].sum()
+        yearly["Total_R_Gross"] = (gross_pnl_by_grp / R).round(1)
+    else:
+        yearly["Total_R_Gross"] = float("nan")
+    yearly = yearly[[
+        "Trades", "WinRate", "Expectancy_R", "Total_R_Gross", "Total_R_Net",
+        "Total_PnL", "ProfitFactor"
+    ]]
 
     yearly["MaxDD_R"] = df.groupby(["Year", "Setup"]).apply(grp_max_dd_r)
     yearly["MaxDD_PnL"] = df.groupby(["Year", "Setup"]).apply(grp_max_dd_pnl)
@@ -1279,45 +1565,7 @@ def print_yearly_summary(df):
     # CSV export
     os.makedirs(REPORT_FOLDER, exist_ok=True)
     yearly.to_csv(os.path.join(REPORT_FOLDER, "yearly_summary.csv"))
-    print(f"  [CSV] yearly_summary.csv saved.")
 
-
-def print_trade_quality(df):
-    avg_mfe = df["MaxR_Execution"].mean()
-    avg_mae = df["MAE_R"].mean()  # Expected negative for LONG (adverse = downside)
-    avg_dur = df["Duration_Minutes"].mean()
-    avg_mfe_full = df["MaxR_FullDay"].mean()
-
-    # Capture efficiency: how much of the full-day upside (LONG MFE) did we actually capture
-    efficiency = (df["MaxR_Execution"] / df["MaxR_FullDay"].replace(0, float("nan"))).mean() * 100
-
-    # MAE edge: avg how far price went against us before recovering — key for stop placement
-    pct_mae_beyond_half_r = (df["MAE_R"] < -0.5).mean() * 100  # % trades that dipped > 0.5R against
-
-    print("\n=======================================================")
-    print("  TRADE QUALITY  (LONG — favourable = UP, adverse = DOWN)")
-    print("=======================================================")
-    print(f"  Avg MFE (execution) : +{avg_mfe:.1f} R  (best upside seen while in trade)")
-    print(f"  Avg MFE (full day)  : +{avg_mfe_full:.1f} R  (best upside available whole day)")
-    print(f"  Avg MAE             : {avg_mae:.1f} R  (avg worst drawdown vs entry)")
-    print(f"  % Trades MAE > 0.5R : {pct_mae_beyond_half_r:.1f}%  (stop stress indicator)")
-    print(f"  Avg Duration (min)  : {avg_dur:.1f}")
-    print(f"  Capture Efficiency  : {efficiency:.1f}%")
-
-    # CSV export
-    os.makedirs(REPORT_FOLDER, exist_ok=True)
-    metrics = {
-        "Metric": [
-            "Avg MFE Execution (R)", "Avg MFE Full Day (R)", "Avg MAE (R)",
-            "% Trades MAE > 0.5R", "Avg Duration (min)", "Capture Efficiency (%)"
-        ],
-        "Value": [
-            round(avg_mfe, 1), round(avg_mfe_full, 1), round(avg_mae, 1),
-            round(pct_mae_beyond_half_r, 1), round(avg_dur, 1), round(efficiency, 1)
-        ]
-    }
-    pd.DataFrame(metrics).to_csv(os.path.join(REPORT_FOLDER, "trade_quality.csv"), index=False)
-    print(f"  [CSV] trade_quality.csv saved.")
 
 
 def print_target_hit_summary(df):
@@ -1395,7 +1643,6 @@ def print_target_hit_summary(df):
         ],
     })
     summary.to_csv(os.path.join(REPORT_FOLDER, "target_hit_summary.csv"), index=False)
-    print(f"  [CSV] target_hit_summary.csv saved.")
 
 
 def plot_real_equity(df):
@@ -1459,24 +1706,15 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
 
     df = apply_dynamic_compounding(df)
 
-    print("\n=======================================================")
-    print("  MODE: ALL SIGNALS — static capital sizing")
-    print("  R metrics = edge | ₹ PnL = linear proxy (not compounded)")
-    print("=======================================================")
-
-    print_core_performance(df)
-    print_risk_metrics(df)
-    print_r_distribution(df)
-    print_rolling_stats(df)
-    print_trade_quality(df)
-    print_target_hit_summary(df)
+    print_key_metrics_table(df)
+    if exit_model == ExitModel.DYNAMIC:
+        print_target_hit_summary(df)
     print_setup_summary(df)
     print_yearly_summary(df)
 
     plot_real_equity(df)
 
     df.to_csv("intraday_m5_backtest_results.csv", index=False)
-    print("\nCSV export complete.")
 
 
 # =========================================================
