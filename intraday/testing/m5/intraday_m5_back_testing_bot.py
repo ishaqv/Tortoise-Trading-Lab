@@ -1,5 +1,6 @@
 import os
 import time
+from collections import deque
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
@@ -28,6 +29,19 @@ REPORT_FOLDER = "reports"
 entry_slippage_bp = 2
 stop_slippage_bp = 4
 exit_model = ExitModel.DYNAMIC
+
+# --------------------------------------------------------------
+# Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial
+# is booked). Deliberately NOT ATR-based: the stop trails behind the
+# lowest low (long) / highest high (short) of the last
+# ROLLING_TRAIL_LOOKBACK closed candles — a level readable straight
+# off a chart, so this can be executed manually (check the last N
+# candles, move the SL order if it improves) rather than requiring
+# an automated bot recomputing ATR every bar.
+# Smaller = tighter (locks in more, exits sooner on pullbacks).
+# Larger = looser (rides out bigger dips, gives back more on reversals).
+# --------------------------------------------------------------
+ROLLING_TRAIL_LOOKBACK = 3
 R = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
 # ==========================================================
 # Dynamic Round Trip Cost Calculator
@@ -294,7 +308,7 @@ def process_symbol(
         symbol,
         instrument_token,
         partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
-        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 3,
+        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 6,
         atr_entry_buffer=0.01
 ):
     ENTRY_LOOKAHEAD_CANDLES = 15
@@ -555,6 +569,15 @@ def process_symbol(
                 # trailing stop becomes active NEXT candle only
                 pending_trailing_stop = None
 
+                # ------------------------------------------------------
+                # RECENT CANDLE LOWS/HIGHS
+                # ------------------------------------------------------
+                # Rolling history of the last ROLLING_TRAIL_LOOKBACK closed
+                # candles' lows (long) / highs (short), used below to
+                # compute a trail a person can read straight off a chart:
+                # "lowest low of the last N candles" — no ATR, no R-math.
+                recent_extremes = deque(maxlen=ROLLING_TRAIL_LOOKBACK)
+
                 # ==========================================================
                 # EXECUTION LOOP
                 # ==========================================================
@@ -573,6 +596,15 @@ def process_symbol(
                     if pending_trailing_stop is not None:
                         trailing_stop = pending_trailing_stop
                         pending_trailing_stop = None
+
+                    # ------------------------------------------------------
+                    # TRACK ROLLING CANDLE EXTREMES
+                    # ------------------------------------------------------
+                    # Appended every bar (not just after partial) so that
+                    # once T1 fires, the last N candles' worth of history
+                    # is already available rather than starting empty.
+
+                    recent_extremes.append(low if is_long else high)
 
                     # ------------------------------------------------------
                     # UPDATE MFE / MAE
@@ -746,6 +778,41 @@ def process_symbol(
                         # --------------------------------------------------
 
                         else:
+
+                            # ----------------------------------------------
+                            # ROLLING N-CANDLE TRAIL (manually executable)
+                            # ----------------------------------------------
+                            # Previously an ATR-based chandelier trail —
+                            # accurate, but requires recomputing ATR every
+                            # candle for every open position, which isn't
+                            # realistic to execute by hand. This version
+                            # uses only what's visible on the chart: the
+                            # lowest low (long) / highest high (short) of
+                            # the last ROLLING_TRAIL_LOOKBACK closed candles.
+                            # A person managing one position can check this
+                            # every candle close and move their SL order to
+                            # match — no ATR, no R-arithmetic. Naturally
+                            # volatility-adaptive the same way ATR is
+                            # (recent lows sit further away in a choppy
+                            # stock, closer in a calm one) without requiring
+                            # any calculation beyond "what's the lowest low
+                            # of the last few candles". The stop only ever
+                            # moves in the favorable direction (monotonic)
+                            # and never below breakeven.
+
+                            if is_long:
+
+                                candidate_stop = min(recent_extremes)
+
+                                if candidate_stop > trailing_stop:
+                                    pending_trailing_stop = candidate_stop
+
+                            else:
+
+                                candidate_stop = max(recent_extremes)
+
+                                if candidate_stop < trailing_stop:
+                                    pending_trailing_stop = candidate_stop
 
                             # ----------------------------------------------
                             # EXIT CHECKS
