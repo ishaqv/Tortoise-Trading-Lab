@@ -109,15 +109,15 @@ def analyze_stock_for_setup(symbol,
 
         if breakout_time == EVB_SCAN_CANDLE_TIME:
 
-            #  EVB LONG
-            if is_volume_explosion_long_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EVB
+            # EMB LONG
+            if is_early_momentum_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EMB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 
-            # EMB LONG
-            elif is_early_momentum_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EMB
+            #  EVB LONG
+            elif is_volume_explosion_long_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EVB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 

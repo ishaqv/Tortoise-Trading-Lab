@@ -2,9 +2,9 @@ from util.trade_logger import log
 
 
 def is_strong_breakout_candle(breakout_candle,
-                              body_threshold=0.5,
-                              max_wick_ratio=0.25,
-                              max_body_atr_multiplier=5):
+                              body_threshold=0.6,
+                              max_wick_ratio=0.3,
+                              max_body_atr_multiplier=7):
     """
     Determines whether the breakout candle is a strong, healthy bullish candle(body > 50% and upper wick < 35%).
     """
@@ -38,7 +38,7 @@ def is_strong_breakout_candle(breakout_candle,
 
 
 def is_explosive_breakout_volume(breakout_candle,
-                                 min_multiplier=15):
+                                 min_multiplier=25):
     """
     breakout_volume should exceed 2 standard deviations above the mean.
     When you see a volume bar above mean + 2σ, it usually signals institutional activity, breakout force

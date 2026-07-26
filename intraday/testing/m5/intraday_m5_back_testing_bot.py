@@ -26,7 +26,7 @@ REPORT_FOLDER = "reports"
 # charged once per completed trade (entry + exit combined).
 
 entry_slippage_bp = 2
-stop_slippage_bp = 5
+stop_slippage_bp = 4
 exit_model = ExitModel.DYNAMIC
 R = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
 # ==========================================================
@@ -294,7 +294,7 @@ def process_symbol(
         symbol,
         instrument_token,
         partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
-        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 2,
+        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 3,
         atr_entry_buffer=0.01
 ):
     ENTRY_LOOKAHEAD_CANDLES = 15
@@ -988,10 +988,10 @@ def process_symbol(
 
                     "Window": window["name"],
 
-                    "Entry": round(entry_price, 1),
+                    "Entry": round(entry_price, 2),
                     "Entry Time": triggered_time,
 
-                    "Exit": round(exit_price, 1),
+                    "Exit": round(exit_price, 2),
                     "Exit Time": exit_time,
 
                     "R": round(pnl_r, 2),
@@ -1226,6 +1226,10 @@ def apply_dynamic_compounding(df,
     df["PnL"] = pnl_list
     df["R_Theoretical"] = df["R"]
     df["R"] = r_position_sized_list
+    # Gross R-multiple (pre-cost) — same global R unit as the net df["R"],
+    # so Gross Expectancy(R) x trades x R == Total Gross PnL, exactly the
+    # way Expectancy(R) x trades x R == Total_PnL does for the net figure.
+    df["R_Gross"] = df["Gross_PnL"] / R
     df["Cum_R"] = cum_r
     df["Equity"] = equity
     df["Leverage_Constrained"] = leverage_constrained_list
@@ -1314,7 +1318,9 @@ def print_key_metrics_table(df, window=20):
     avg_win = df[df["R"] > 0]["R"].mean() if wins > 0 else 0
     avg_loss = df[df["R"] < 0]["R"].mean() if losses > 0 else 0
     avg_win_loss_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else float("inf")
-    expectancy = df["R"].mean()
+    expectancy_net = df["R"].mean()
+    expectancy_gross = df["R_Gross"].mean() if "R_Gross" in df.columns else float("nan")
+    expectancy = expectancy_net  # kept for any other internal references below
     best_trade_r = df["R"].max()
     worst_trade_r = df["R"].min()
 
@@ -1374,9 +1380,10 @@ def print_key_metrics_table(df, window=20):
 
     if len(df) >= window:
         rolling_exp = df["R"].rolling(window).mean().iloc[-1]
+        rolling_exp_gross = df["R_Gross"].rolling(window).mean().iloc[-1] if "R_Gross" in df.columns else float("nan")
         rolling_wr = (df["R"] > 0).rolling(window).mean().iloc[-1]
     else:
-        rolling_exp, rolling_wr = float("nan"), float("nan")
+        rolling_exp, rolling_exp_gross, rolling_wr = float("nan"), float("nan"), float("nan")
 
     rows = [
         ("Performance", "Capital(₹)", f"{TRADING_CAPITAL}"),
@@ -1384,35 +1391,39 @@ def print_key_metrics_table(df, window=20):
         ("Performance", "Total Trades", f"{total_trades}"),
         ("Performance", "Wins / Losses / BE", f"{wins} / {losses} / {breakevens}"),
         ("Performance", "Win Rate", f"{win_rate:.1%}"),
-        ("Performance", "Avg Win (R)", f"{avg_win:.1f}"),
+        ("Performance", "Avg Win (R)", f"{avg_win:.2f}"),
         ("Performance", "Avg Win (R, Theoretical/Uncapped)",
-         f"{avg_win_theoretical:.1f}" if avg_win_theoretical == avg_win_theoretical else "n/a"),
-        ("Performance", "Avg Loss (R)", f"{avg_loss:.1f}"),
+         f"{avg_win_theoretical:.2f}" if avg_win_theoretical == avg_win_theoretical else "n/a"),
+        ("Performance", "Avg Loss (R)", f"{avg_loss:.2f}"),
         ("Performance", "Avg Loss (R, Theoretical/Uncapped)",
-         f"{avg_loss_theoretical:.1f}" if avg_loss_theoretical == avg_loss_theoretical else "n/a"),
+         f"{avg_loss_theoretical:.2f}" if avg_loss_theoretical == avg_loss_theoretical else "n/a"),
 
-        ("Performance", "Win/Loss Ratio", f"{avg_win_loss_ratio:.1f}"),
-        ("Performance", "Expectancy (R)", f"{expectancy:.1f}"),
-        ("Performance", "Expectancy (₹)", f"{round(expectancy * R)}"),
-        ("Performance", "Profit Factor", f"{profit_factor:.1f}"),
-        ("Performance", "Best / Worst Trade (R)", f"{best_trade_r:.1f} / {worst_trade_r:.1f}"),
+        ("Performance", "Win/Loss Ratio", f"{avg_win_loss_ratio:.2f}"),
+        ("Performance", "Expectancy (R, Gross, pre-cost)",
+         f"{expectancy_gross:.2f}" if expectancy_gross == expectancy_gross else "n/a"),
+        ("Performance", "Expectancy (₹, Gross, pre-cost)",
+         f"{round(expectancy_gross * R)}" if expectancy_gross == expectancy_gross else "n/a"),
+        ("Performance", "Expectancy (R, Net, post-cost)", f"{expectancy_net:.2f}"),
+        ("Performance", "Expectancy (₹, Net, post-cost)", f"{round(expectancy_net * R)}"),
+        ("Performance", "Profit Factor", f"{profit_factor:.2f}"),
+        ("Performance", "Best / Worst Trade (R)", f"{best_trade_r:.2f} / {worst_trade_r:.2f}"),
         ("Performance", "Total R (Gross, pre-cost)",
-         f"{total_r_gross:.1f}" if total_r_gross == total_r_gross else "n/a"),
-        ("Performance", "Total R (Net, post-cost)", f"{total_r_net:.1f}"),
+         f"{total_r_gross:.2f}" if total_r_gross == total_r_gross else "n/a"),
+        ("Performance", "Total R (Net, post-cost)", f"{total_r_net:.2f}"),
         ("Performance", "Total PnL (₹, net)", f"₹{df['PnL'].sum():,.0f}"),
-        ("Risk", "Max Drawdown (R)", f"{max_dd_r:.1f}"),
+        ("Risk", "Max Drawdown (R)", f"{max_dd_r:.2f}"),
         ("Risk", "Max Drawdown (₹)", f"₹{max_dd_amt:,.0f}"),
-        ("Risk", "Max Drawdown (%)", f"{max_dd_pct:.1f}%"),
+        ("Risk", "Max Drawdown (%)", f"{max_dd_pct:.2f}%"),
         ("Risk", "Max DD Duration (days)", f"{max_dd_duration_days}"),
-        ("Risk", "Recovery Factor", f"{recovery_factor:.1f}"),
+        ("Risk", "Recovery Factor", f"{recovery_factor:.2f}"),
         ("Risk", "Max Losing Streak", f"{max_losing_streak}"),
         ("Risk", "Max Winning Streak", f"{max_winning_streak}"),
-        ("Trade Quality", "Avg MFE Execution (R)", f"+{avg_mfe:.1f}"),
-        ("Trade Quality", "Avg MFE Full Day (R)", f"+{avg_mfe_full:.1f}"),
-        ("Trade Quality", "Capture Efficiency", f"{efficiency:.1f}%"),
-        ("Trade Quality", "Avg MAE (R)", f"{avg_mae:.1f}"),
-        ("Trade Quality", "% Trades MAE > 0.5R", f"{pct_mae_beyond_half_r:.1f}%"),
-        ("Trade Quality", "Avg Duration (min)", f"{avg_dur:.1f}"),
+        ("Trade Quality", "Avg MFE Execution (R)", f"+{avg_mfe:.2f}"),
+        ("Trade Quality", "Avg MFE Full Day (R)", f"+{avg_mfe_full:.2f}"),
+        ("Trade Quality", "Capture Efficiency", f"{efficiency:.2f}%"),
+        ("Trade Quality", "Avg MAE (R)", f"{avg_mae:.2f}"),
+        ("Trade Quality", "% Trades MAE > 0.5R", f"{pct_mae_beyond_half_r:.2f}%"),
+        ("Trade Quality", "Avg Duration (min)", f"{avg_dur:.2f}"),
         ("Costs", "Total Flat Brokerage/STT (₹)",
          f"₹{total_round_trip_cost:,.0f}" if total_round_trip_cost == total_round_trip_cost else "n/a"),
         ("Costs", "Total Slippage Cost (₹)",
@@ -1420,12 +1431,14 @@ def print_key_metrics_table(df, window=20):
         ("Costs", "Total Cost (₹)", f"₹{total_cost:,.0f}" if total_cost == total_cost else "n/a"),
         ("Costs", "Avg Cost / Trade (₹)",
          f"₹{avg_cost_per_trade:,.0f}" if avg_cost_per_trade == avg_cost_per_trade else "n/a"),
-        ("Costs", "Cost Drag (% of Gross PnL)", f"{cost_drag_pct:.1f}%" if cost_drag_pct == cost_drag_pct else "n/a"),
+        ("Costs", "Cost Drag (% of Gross PnL)", f"{cost_drag_pct:.2f}%" if cost_drag_pct == cost_drag_pct else "n/a"),
         ("Risk", "% Trades Leverage-Constrained",
-         f"{pct_leverage_constrained:.1f}%" if "Leverage_Constrained" in df.columns else "n/a"),
-        ("Frequency", "Avg Trades / Month", f"{trades_per_month:.1f}"),
-        ("Recent Edge", f"Rolling {window}-Trade Expectancy",
-         f"{rolling_exp:.1f} R" if rolling_exp == rolling_exp else "n/a"),
+         f"{pct_leverage_constrained:.2f}%" if "Leverage_Constrained" in df.columns else "n/a"),
+        ("Frequency", "Avg Trades / Month", f"{trades_per_month:.2f}"),
+        ("Recent Edge", f"Rolling {window}-Trade Expectancy (Gross)",
+         f"{rolling_exp_gross:.2f} R" if rolling_exp_gross == rolling_exp_gross else "n/a"),
+        ("Recent Edge", f"Rolling {window}-Trade Expectancy (Net)",
+         f"{rolling_exp:.2f} R" if rolling_exp == rolling_exp else "n/a"),
         ("Recent Edge", f"Rolling {window}-Trade Win Rate", f"{rolling_wr:.1%}" if rolling_wr == rolling_wr else "n/a"),
     ]
 
@@ -1444,7 +1457,9 @@ def print_key_metrics_table(df, window=20):
         rolling_df = pd.DataFrame({
             "Trade_Index": df.index,
             "Entry_Time": df["Entry Time"].values,
-            f"Rolling_{window}_Expectancy_R": df["R"].rolling(window).mean().round(3),
+            f"Rolling_{window}_Expectancy_R_Gross": df["R_Gross"].rolling(window).mean().round(3)
+            if "R_Gross" in df.columns else float("nan"),
+            f"Rolling_{window}_Expectancy_R_Net": df["R"].rolling(window).mean().round(3),
             f"Rolling_{window}_WinRate": (df["R"] > 0).rolling(window).mean().round(4),
         })
         rolling_df.to_csv(os.path.join(REPORT_FOLDER, "rolling_stats.csv"), index=False)
@@ -1468,14 +1483,14 @@ def print_setup_summary(df):
             WinRate=("R", lambda x: round((x > 0).mean() * 100, 1)),
             AvgWin_R=("R", lambda x: round(x[x > 0].mean(), 1) if (x > 0).any() else 0),
             AvgLoss_R=("R", lambda x: round(x[x < 0].mean(), 1) if (x < 0).any() else 0),
-            Expectancy_R=("R", lambda x: round(x.mean(), 1)),
-            Total_R_Net=("R", lambda x: round(x.sum(), 1)),
+            Expectancy_R_Net=("R", lambda x: round(x.mean(), 2)),
+            Total_R_Net=("R", lambda x: round(x.sum(), 2)),
             Total_PnL=("PnL", lambda x: round(x.sum(), 0)),
             ProfitFactor=("PnL",
-                          lambda x: round(x[x > 0].sum() / abs(x[x < 0].sum()), 1)
+                          lambda x: round(x[x > 0].sum() / abs(x[x < 0].sum()), 2)
                           if abs(x[x < 0].sum()) > 0 else float("inf")),
         )
-        .sort_values("Expectancy_R", ascending=False)
+        .sort_values("Expectancy_R_Net", ascending=False)
     )
 
     # Gross R (pre-cost) needs its own calc from Gross_PnL — R itself is
@@ -1484,11 +1499,16 @@ def print_setup_summary(df):
     # separately purely to see the pre-cost setup quality.
     if "Gross_PnL" in df.columns:
         gross_pnl_by_setup = df.groupby("Setup")["Gross_PnL"].sum()
-        summary["Total_R_Gross"] = (gross_pnl_by_setup / R).round(1)
+        summary["Total_R_Gross"] = (gross_pnl_by_setup / R).round(2)
+        # Gross Expectancy(R) = mean of per-trade Gross R = Total_R_Gross / Trades,
+        # the gross-side counterpart to Expectancy_R_Net above.
+        summary["Expectancy_R_Gross"] = (summary["Total_R_Gross"] / summary["Trades"]).round(2)
     else:
         summary["Total_R_Gross"] = float("nan")
+        summary["Expectancy_R_Gross"] = float("nan")
     summary = summary[[
-        "Trades", "WinRate", "AvgWin_R", "AvgLoss_R", "Expectancy_R",
+        "Trades", "WinRate", "AvgWin_R", "AvgLoss_R",
+        "Expectancy_R_Gross", "Expectancy_R_Net",
         "Total_R_Gross", "Total_R_Net", "Total_PnL", "ProfitFactor"
     ]]
 
@@ -1529,11 +1549,11 @@ def print_yearly_summary(df):
         .agg(
             Trades=("R", "count"),
             WinRate=("R", lambda x: round((x > 0).mean() * 100, 1)),
-            Expectancy_R=("R", lambda x: round(x.mean(), 1)),
-            Total_R_Net=("R", lambda x: round(x.sum(), 1)),
+            Expectancy_R_Net=("R", lambda x: round(x.mean(), 2)),
+            Total_R_Net=("R", lambda x: round(x.sum(), 2)),
             Total_PnL=("PnL", lambda x: round(x.sum(), 0)),
             ProfitFactor=("PnL",
-                          lambda x: round(x[x > 0].sum() / abs(x[x < 0].sum()), 1)
+                          lambda x: round(x[x > 0].sum() / abs(x[x < 0].sum()), 2)
                           if abs(x[x < 0].sum()) > 0 else float("inf")),
         )
         .sort_index()
@@ -1544,10 +1564,14 @@ def print_yearly_summary(df):
     if "Gross_PnL" in df.columns:
         gross_pnl_by_grp = df.groupby(["Year", "Setup"])["Gross_PnL"].sum()
         yearly["Total_R_Gross"] = (gross_pnl_by_grp / R).round(1)
+        # Gross Expectancy(R) = mean per-trade Gross R = Total_R_Gross / Trades.
+        yearly["Expectancy_R_Gross"] = (yearly["Total_R_Gross"] / yearly["Trades"]).round(2)
     else:
         yearly["Total_R_Gross"] = float("nan")
+        yearly["Expectancy_R_Gross"] = float("nan")
     yearly = yearly[[
-        "Trades", "WinRate", "Expectancy_R", "Total_R_Gross", "Total_R_Net",
+        "Trades", "WinRate", "Expectancy_R_Gross", "Expectancy_R_Net",
+        "Total_R_Gross", "Total_R_Net",
         "Total_PnL", "ProfitFactor"
     ]]
 
@@ -1595,8 +1619,8 @@ def print_target_hit_summary(df):
     n_t1_only = int(hit_t1_only.sum())
     n_neither = int(hit_neither.sum())
 
-    def _avg_r(mask):
-        return round(df.loc[mask, "R"].mean(), 2) if mask.any() else 0.0
+    def _avg_r(mask, col="R"):
+        return round(df.loc[mask, col].mean(), 2) if mask.any() else 0.0
 
     def _avg_dur(mask):
         return round(df.loc[mask, "Duration_Minutes"].mean(), 1) if mask.any() else 0.0
@@ -1604,9 +1628,15 @@ def print_target_hit_summary(df):
     def _win_rate(mask):
         return round((df.loc[mask, "R"] > 0).mean() * 100, 1) if mask.any() else 0.0
 
+    has_gross = "R_Gross" in df.columns
+
     avg_r_t2 = _avg_r(hit_t2)
     avg_r_t1_only = _avg_r(hit_t1_only)
     avg_r_neither = _avg_r(hit_neither)
+
+    avg_r_gross_t2 = _avg_r(hit_t2, "R_Gross") if has_gross else float("nan")
+    avg_r_gross_t1_only = _avg_r(hit_t1_only, "R_Gross") if has_gross else float("nan")
+    avg_r_gross_neither = _avg_r(hit_neither, "R_Gross") if has_gross else float("nan")
 
     avg_dur_t2 = _avg_dur(hit_t2)
     avg_dur_t1_only = _avg_dur(hit_t1_only)
@@ -1619,11 +1649,11 @@ def print_target_hit_summary(df):
     print("=======================================================")
     print(f"  Total Trades         : {total}")
     print(
-        f"  Hit T2               : {n_t2}  ({n_t2 / total * 100:.1f}%)  |  Avg R: {avg_r_t2:+.2f}  |  Avg Dur: {avg_dur_t2:.1f} min")
+        f"  Hit T2               : {n_t2}  ({n_t2 / total * 100:.2f}%)  |  Avg R (Gross/Net): {avg_r_gross_t2:+.2f} / {avg_r_t2:+.2f}  |  Avg Dur: {avg_dur_t2:.2f} min")
     print(
-        f"  Hit T1, not T2       : {n_t1_only}  ({n_t1_only / total * 100:.1f}%)  |  Avg R: {avg_r_t1_only:+.2f}  |  Avg Dur: {avg_dur_t1_only:.1f} min  |  WinRate: {wr_t1_only:.1f}%")
+        f"  Hit T1, not T2       : {n_t1_only}  ({n_t1_only / total * 100:.2f}%)  |  Avg R (Gross/Net): {avg_r_gross_t1_only:+.2f} / {avg_r_t1_only:+.2f}  |  Avg Dur: {avg_dur_t1_only:.2f} min  |  WinRate: {wr_t1_only:.2f}%")
     print(
-        f"  Never hit T1         : {n_neither}  ({n_neither / total * 100:.1f}%)  |  Avg R: {avg_r_neither:+.2f}  |  Avg Dur: {avg_dur_neither:.1f} min")
+        f"  Never hit T1         : {n_neither}  ({n_neither / total * 100:.2f}%)  |  Avg R (Gross/Net): {avg_r_gross_neither:+.2f} / {avg_r_neither:+.2f}  |  Avg Dur: {avg_dur_neither:.2f} min")
 
     # CSV export
     os.makedirs(REPORT_FOLDER, exist_ok=True)
@@ -1636,7 +1666,11 @@ def print_target_hit_summary(df):
             round(n_neither / total * 100, 1),
             100.0,
         ],
-        "Avg_R": [avg_r_t2, avg_r_t1_only, avg_r_neither, round(df["R"].mean(), 2)],
+        "Avg_R_Gross": [
+            avg_r_gross_t2, avg_r_gross_t1_only, avg_r_gross_neither,
+            round(df["R_Gross"].mean(), 2) if has_gross else float("nan"),
+        ],
+        "Avg_R_Net": [avg_r_t2, avg_r_t1_only, avg_r_neither, round(df["R"].mean(), 2)],
         "Avg_Duration_Minutes": [
             avg_dur_t2, avg_dur_t1_only, avg_dur_neither,
             round(df["Duration_Minutes"].mean(), 1),
