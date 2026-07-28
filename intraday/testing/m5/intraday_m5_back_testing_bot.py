@@ -308,7 +308,7 @@ def process_symbol(
         symbol,
         instrument_token,
         partial_exit_pct=0.4,  # 0.5 = 50%, 0.3 = 30%
-        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 4,
+        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 3.25,
         atr_entry_buffer=0.01
 ):
     ENTRY_LOOKAHEAD_CANDLES = 15

@@ -336,197 +336,175 @@ As a general guideline, consider using a partial exit strategy when you observe 
 
 ### 📊 Strategy Performance Summary (EVB)
 
-```Capital = 5L, Backtest Duration = 5 years```
+```Capital = 4L, Backtest Duration = 5 years```
 
 #### Fixed target Backtest Performance
 
-#### Key Metrics
+##### Key Metrics Summary
 
-| Metric                          |              Value |
-|:--------------------------------|-------------------:|
-| **Capital**                     |           ₹500,000 |
-| **Risk Per Trade (1R)**         |            ₹12,500 |
-| **Total Trades**                |              1,057 |
-| **Wins / Losses / BE**          |      457 / 600 / 0 |
-| **Win Rate**                    |          **43.2%** |
-| **Average Win**                 |          **+1.8R** |
-| **Average Win (Theoretical)**   |              +4.0R |
-| **Average Loss**                |          **-0.7R** |
-| **Average Loss (Theoretical)**  |              -1.0R |
-| **Win/Loss Ratio**              |            **2.6** |
-| **Expectancy**                  | **+0.4R (₹4,711)** |
-| **Profit Factor**               |            **2.0** |
-| **Best / Worst Trade**          |      +3.9R / -1.2R |
-| **Gross Return**                |            +571.8R |
-| **Net Return (After Costs)**    |            +398.4R |
-| **Net Profit**                  |     **₹4,979,767** |
-| **Max Drawdown**                |             -12.2R |
-| **Max Drawdown (₹)**            |           ₹152,559 |
-| **Max Drawdown (%)**            |           **8.8%** |
-| **Max DD Duration**             |           134 Days |
-| **Recovery Factor**             |           **32.6** |
-| **Max Losing Streak**           |                 14 |
-| **Max Winning Streak**          |                  6 |
-| **Average Trade Duration**      |        9.2 Minutes |
-| **Average MFE (Execution)**     |              +3.8R |
-| **Average MFE (Full Day)**      |             +11.1R |
-| **Capture Efficiency**          |          **48.8%** |
-| **Average MAE**                 |              -2.1R |
-| **Trades with MAE > 0.5R**      |              67.1% |
-| **Average Trades / Month**      |               17.8 |
-| **Rolling 20-Trade Expectancy** |              +0.3R |
-| **Rolling 20-Trade Win Rate**   |              40.0% |
-
----
-
-#### Trading Costs
-
-| Metric                   |          Value |
-|:-------------------------|---------------:|
-| Brokerage & Taxes        |       ₹960,180 |
-| Slippage Cost            |     ₹1,207,173 |
-| **Total Trading Cost**   | **₹2,167,353** |
-| **Average Cost / Trade** |     **₹2,050** |
-| **Cost Drag**            |      **30.3%** |
+| Metric                              |         Value |
+|-------------------------------------|--------------:|
+| Capital (₹)                         |       400,000 |
+| R (₹)                               |      10,000.0 |
+| Total Trades                        |           800 |
+| Wins / Losses / BE                  | 331 / 469 / 0 |
+| Win Rate                            |         41.4% |
+| Avg Win (R)                         |          2.38 |
+| Avg Win (R, Theoretical/Uncapped)   |          4.23 |
+| Avg Loss (R)                        |         -0.79 |
+| Avg Loss (R, Theoretical/Uncapped)  |         -1.00 |
+| Win/Loss Ratio                      |          3.01 |
+| Expectancy (R, Gross, pre-cost)     |          0.68 |
+| Expectancy (₹, Gross, pre-cost)     |        ₹6,762 |
+| Expectancy (R, Net, post-cost)      |          0.52 |
+| Expectancy (₹, Net, post-cost)      |        ₹5,214 |
+| Profit Factor                       |          2.12 |
+| Best / Worst Trade (R)              |  4.17 / -1.19 |
+| Total R (Gross, pre-cost)           |        540.98 |
+| Total R (Net, post-cost)            |        417.13 |
+| Total PnL (₹, net)                  |    ₹4,171,303 |
+| Max Drawdown (R)                    |         -8.84 |
+| Max Drawdown (₹)                    |      ₹-88,359 |
+| Max Drawdown (%)                    |        -6.84% |
+| Max DD Duration (days)              |           226 |
+| Recovery Factor                     |         47.21 |
+| Max Losing Streak                   |             9 |
+| Max Winning Streak                  |             9 |
+| Avg MFE Execution (R)               |         +3.60 |
+| Avg MFE Full Day (R)                |        +10.44 |
+| Capture Efficiency                  |        49.48% |
+| Avg MAE (R)                         |         -2.13 |
+| % Trades MAE > 0.5R                 |        69.25% |
+| Avg Duration (min)                  |         11.61 |
+| Total Flat Brokerage/STT (₹)        |      ₹585,967 |
+| Total Slippage Cost (₹)             |      ₹652,528 |
+| Total Cost (₹)                      |    ₹1,238,494 |
+| Avg Cost / Trade (₹)                |        ₹1,548 |
+| Cost Drag (% of Gross PnL)          |        22.89% |
+| % Trades Leverage-Constrained       |        92.25% |
+| Avg Trades / Month                  |         13.46 |
+| Rolling 20-Trade Expectancy (Gross) |        0.87 R |
+| Rolling 20-Trade Expectancy (Net)   |        0.72 R |
+| Rolling 20-Trade Win Rate           |         45.0% |
 
 ---
 
-#### Risk & Capital
+##### Setup Summary
 
-| Metric                      |           Value |
-|:----------------------------|----------------:|
-| Risk Per Trade              | 2.5% of Capital |
-| Leverage Constrained Trades |           96.7% |
-
----
-
-#### Setup Performance
-
-| Setup   | Trades | Win Rate | Avg Win | Avg Loss | Expectancy | Gross R |  Net R |    Net PnL | Profit Factor | Max DD |
-|:--------|-------:|---------:|--------:|---------:|-----------:|--------:|-------:|-----------:|--------------:|-------:|
-| **EMB** |    404 |    43.8% |   +2.1R |    -0.8R |      +0.5R |  257.0R | 191.3R | ₹2,391,156 |           2.0 | -12.9R |
-| **EVB** |    653 |    42.9% |   +1.6R |    -0.6R |      +0.3R |  314.8R | 207.1R | ₹2,588,612 |           1.9 |  -7.6R |
+| Setup | Trades | Win Rate | Avg Win (R) | Avg Loss (R) | Expectancy (Gross R) | Expectancy (Net R) | Total R (Gross) | Total R (Net) |  Total PnL | Profit Factor | Max DD (R) | Max DD (₹) |
+|-------|-------:|---------:|------------:|-------------:|---------------------:|-------------------:|----------------:|--------------:|-----------:|--------------:|-----------:|-----------:|
+| EMB   |    614 |    41.0% |         2.4 |         -0.8 |                 0.68 |               0.52 |          414.89 |        319.97 | ₹3,199,654 |          2.10 |       -9.8 |   ₹-97,803 |
+| EVB   |    186 |    42.5% |         2.2 |         -0.7 |                 0.68 |               0.52 |          126.09 |         97.16 |   ₹971,649 |          2.22 |      -11.3 |  ₹-112,550 |
 
 ---
 
 #### Year-wise Performance
 
-| Year | Setup | Trades | Win Rate | Expectancy | Net R |  Net PnL | Profit Factor |
-|:----:|:-----:|-------:|---------:|-----------:|------:|---------:|--------------:|
-| 2021 |  EMB  |     25 |    44.0% |      +0.5R | 12.0R | ₹149,544 |           2.0 |
-| 2021 |  EVB  |     26 |    38.5% |      +0.1R |  3.1R |  ₹38,251 |           1.3 |
-| 2022 |  EMB  |     33 |    42.4% |      +0.4R | 13.6R | ₹169,743 |           1.9 |
-| 2022 |  EVB  |     67 |    41.8% |      +0.3R | 22.3R | ₹279,271 |           1.9 |
-| 2023 |  EMB  |     43 |    39.5% |      +0.4R | 18.9R | ₹236,243 |           1.9 |
-| 2023 |  EVB  |    120 |    45.8% |      +0.4R | 44.1R | ₹551,857 |           2.1 |
-| 2024 |  EMB  |    119 |    40.3% |      +0.4R | 45.1R | ₹563,755 |           1.7 |
-| 2024 |  EVB  |    186 |    39.2% |      +0.2R | 40.4R | ₹504,833 |           1.6 |
-| 2025 |  EMB  |    104 |    47.1% |      +0.5R | 53.9R | ₹674,102 |           2.3 |
-| 2025 |  EVB  |    154 |    46.1% |      +0.4R | 59.7R | ₹746,794 |           2.2 |
-| 2026 |  EMB  |     80 |    47.5% |      +0.6R | 47.8R | ₹597,769 |           2.5 |
-| 2026 |  EVB  |    100 |    43.0% |      +0.4R | 37.4R | ₹467,606 |           2.0 |
+| Year | Setup | Trades | Win Rate | Expectancy (Gross R) | Expectancy (Net R) | Total R (Gross) | Total R (Net) | Total PnL | Profit Factor | Max DD (R) | Max DD (₹) |
+|-----:|:-----:|-------:|---------:|---------------------:|-------------------:|----------------:|--------------:|----------:|--------------:|-----------:|-----------:|
+| 2021 |  EMB  |     40 |    40.0% |                 0.63 |               0.48 |            25.2 |         19.05 |  ₹190,485 |          1.91 |       -4.6 |   ₹-45,978 |
+| 2021 |  EVB  |      3 |    33.3% |                 0.57 |               0.41 |             1.7 |          1.22 |   ₹12,214 |          1.91 |       -0.6 |    ₹-6,120 |
+| 2022 |  EMB  |     49 |    36.7% |                 0.58 |               0.42 |            28.4 |         20.63 |  ₹206,329 |          1.80 |       -4.3 |   ₹-42,758 |
+| 2022 |  EVB  |      6 |    16.7% |                -0.05 |              -0.23 |            -0.3 |         -1.37 |  ₹-13,705 |          0.62 |       -2.9 |   ₹-28,752 |
+| 2023 |  EMB  |     67 |    40.3% |                 0.71 |               0.56 |            47.7 |         37.38 |  ₹373,754 |          2.20 |       -3.8 |   ₹-38,000 |
+| 2023 |  EVB  |     29 |    20.7% |                -0.02 |              -0.19 |            -0.5 |         -5.50 |  ₹-55,001 |          0.67 |      -10.1 |  ₹-100,698 |
+| 2024 |  EMB  |    191 |    40.8% |                 0.65 |               0.50 |           124.6 |         95.00 |  ₹950,038 |          1.98 |       -9.8 |   ₹-97,803 |
+| 2024 |  EVB  |     51 |    52.9% |                 0.90 |               0.75 |            45.7 |         38.20 |  ₹382,038 |          2.99 |       -3.1 |   ₹-31,331 |
+| 2025 |  EMB  |    147 |    43.5% |                 0.70 |               0.55 |           103.0 |         80.45 |  ₹804,531 |          2.26 |       -4.7 |   ₹-47,244 |
+| 2025 |  EVB  |     50 |    42.0% |                 0.72 |               0.57 |            36.2 |         28.40 |  ₹283,976 |          2.35 |       -4.6 |   ₹-46,398 |
+| 2026 |  EMB  |    120 |    40.8% |                 0.72 |               0.56 |            86.0 |         67.45 |  ₹674,517 |          2.27 |       -4.5 |   ₹-45,123 |
+| 2026 |  EVB  |     47 |    48.9% |                 0.92 |               0.77 |            43.3 |         36.21 |  ₹362,128 |          3.03 |       -3.2 |   ₹-32,478 |
 
 ---
 
-### Partial Exit Target - 50% at T1 and 50% at T2
+### Partial Exit Target - 40% at T1 and 60% at T2
 
 ### 📈 Backtest Performance Summary
 
-#### Key Metrics
+#### Key Metrics Summary
 
-| Metric                          |              Value |
-|:--------------------------------|-------------------:|
-| **Capital**                     |           ₹500,000 |
-| **Risk Per Trade (1R)**         |            ₹12,500 |
-| **Total Trades**                |              1,057 |
-| **Wins / Losses / BE**          |      457 / 600 / 0 |
-| **Win Rate**                    |          **43.2%** |
-| **Average Win**                 |          **+1.8R** |
-| **Average Win (Theoretical)**   |              +4.2R |
-| **Average Loss**                |          **-0.7R** |
-| **Average Loss (Theoretical)**  |              -1.0R |
-| **Win/Loss Ratio**              |            **2.7** |
-| **Expectancy**                  | **+0.4R (₹5,010)** |
-| **Profit Factor**               |            **2.0** |
-| **Best / Worst Trade**          |      +5.9R / -1.2R |
-| **Gross Return**                |            +616.0R |
-| **Net Return (After Costs)**    |            +423.6R |
-| **Net Profit**                  |     **₹5,295,111** |
-| **Max Drawdown**                |             -14.3R |
-| **Max Drawdown (₹)**            |           ₹178,352 |
-| **Max Drawdown (%)**            |           **8.6%** |
-| **Max DD Duration**             |           163 Days |
-| **Recovery Factor**             |           **29.7** |
-| **Max Losing Streak**           |                 14 |
-| **Max Winning Streak**          |                  7 |
-| **Average Trade Duration**      |       17.5 Minutes |
-| **Average MFE (Execution)**     |              +4.6R |
-| **Average MFE (Full Day)**      |             +11.1R |
-| **Capture Efficiency**          |          **54.2%** |
-| **Average MAE**                 |              -2.4R |
-| **Trades with MAE > 0.5R**      |              77.0% |
-| **Average Trades / Month**      |               17.8 |
-| **Rolling 20-Trade Expectancy** |              +0.6R |
-| **Rolling 20-Trade Win Rate**   |              40.0% |
-
----
-
-#### Trading Costs
-
-| Metric                   |          Value |
-|:-------------------------|---------------:|
-| Brokerage & Taxes        |       ₹960,502 |
-| Slippage Cost            |     ₹1,444,291 |
-| **Total Trading Cost**   | **₹2,404,793** |
-| **Average Cost / Trade** |     **₹2,275** |
-| **Cost Drag**            |      **31.2%** |
+| Metric                              |         Value |
+|-------------------------------------|--------------:|
+| Capital (₹)                         |       400,000 |
+| R (₹)                               |      10,000.0 |
+| Total Trades                        |           800 |
+| Wins / Losses / BE                  | 331 / 469 / 0 |
+| Win Rate                            |         41.4% |
+| Avg Win (R)                         |          2.52 |
+| Avg Win (R, Theoretical/Uncapped)   |          4.57 |
+| Avg Loss (R)                        |         -0.79 |
+| Avg Loss (R, Theoretical/Uncapped)  |         -1.00 |
+| Win/Loss Ratio                      |          3.18 |
+| Expectancy (R, Gross, pre-cost)     |          0.76 |
+| Expectancy (₹, Gross, pre-cost)     |        ₹7,564 |
+| Expectancy (R, Net, post-cost)      |          0.58 |
+| Expectancy (₹, Net, post-cost)      |        ₹5,775 |
+| Profit Factor                       |          2.24 |
+| Best / Worst Trade (R)              |  9.88 / -1.19 |
+| Total R (Gross, pre-cost)           |        605.10 |
+| Total R (Net, post-cost)            |        461.98 |
+| Total PnL (₹, net)                  |    ₹4,619,763 |
+| Max Drawdown (R)                    |        -11.00 |
+| Max Drawdown (₹)                    |     ₹-109,963 |
+| Max Drawdown (%)                    |        -9.18% |
+| Max DD Duration (days)              |           379 |
+| Recovery Factor                     |         42.01 |
+| Max Losing Streak                   |             9 |
+| Max Winning Streak                  |             7 |
+| Avg MFE Execution (R)               |         +4.66 |
+| Avg MFE Full Day (R)                |        +10.44 |
+| Capture Efficiency                  |        55.79% |
+| Avg MAE (R)                         |         -2.33 |
+| % Trades MAE > 0.5R                 |        76.12% |
+| Avg Duration (min)                  |         19.60 |
+| Total Flat Brokerage/STT (₹)        |      ₹586,278 |
+| Total Slippage Cost (₹)             |      ₹844,974 |
+| Total Cost (₹)                      |    ₹1,431,252 |
+| Avg Cost / Trade (₹)                |        ₹1,789 |
+| Cost Drag (% of Gross PnL)          |        23.65% |
+| % Trades Leverage-Constrained       |        92.25% |
+| Avg Trades / Month                  |         13.46 |
+| Rolling 20-Trade Expectancy (Gross) |        1.63 R |
+| Rolling 20-Trade Expectancy (Net)   |        1.47 R |
+| Rolling 20-Trade Win Rate           |         45.0% |
 
 ---
 
-#### Target Performance
+#### Target Hit Summary
 
-| Outcome          | Trades | % of Trades | Average R | Average Duration |
-|:-----------------|-------:|------------:|----------:|-----------------:|
-| **Hit T2**       |    248 |   **23.5%** |    +2.71R |         25.0 min |
-| **Hit T1 Only**  |    204 |   **19.3%** |    +0.77R |         29.1 min |
-| **Never Hit T1** |    605 |   **57.2%** |    -0.67R |         10.6 min |
-
----
-
-#### Risk & Capital
-
-| Metric                      |           Value |
-|:----------------------------|----------------:|
-| Risk Per Trade              | 2.5% of Capital |
-| Leverage Constrained Trades |           96.7% |
+| Outcome        | Trades | % of Trades | Avg R (Gross / Net) | Avg Duration | Win Rate |
+|----------------|-------:|------------:|--------------------:|-------------:|---------:|
+| Hit T2         |     71 |       8.88% |       +5.60 / +5.48 |    26.60 min |        — |
+| Hit T1, not T2 |    254 |      31.75% |       +1.89 / +1.70 |    30.70 min |  100.00% |
+| Never hit T1   |    475 |      59.38% |       -0.57 / -0.76 |    12.60 min |        — |
 
 ---
 
-#### Setup Performance
+#### Setup Summary
 
-| Setup   | Trades | Win Rate | Avg Win | Avg Loss | Expectancy | Gross R |  Net R |    Net PnL | Profit Factor | Max DD |
-|:--------|-------:|---------:|--------:|---------:|-----------:|--------:|-------:|-----------:|--------------:|-------:|
-| **EMB** |    404 |    43.8% |   +2.2R |    -0.8R |      +0.5R |  282.3R | 209.6R | ₹2,619,429 |           2.1 | -12.2R |
-| **EVB** |    653 |    42.9% |   +1.6R |    -0.6R |      +0.3R |  333.6R | 214.1R | ₹2,675,682 |           1.9 |  -8.4R |
+| Setup | Trades | Win Rate | Avg Win (R) | Avg Loss (R) | Expectancy (Gross R) | Expectancy (Net R) | Total R (Gross) | Total R (Net) |  Total PnL | Profit Factor | Max DD (R) | Max DD (₹) |
+|-------|-------:|---------:|------------:|-------------:|---------------------:|-------------------:|----------------:|--------------:|-----------:|--------------:|-----------:|-----------:|
+| EVB   |    186 |    42.5% |         2.4 |         -0.7 |                 0.78 |               0.60 |          144.87 |        111.74 | ₹1,117,449 |          2.40 |      -10.0 |   ₹-99,868 |
+| EMB   |    614 |    41.0% |         2.5 |         -0.8 |                 0.75 |               0.57 |          460.23 |        350.23 | ₹3,502,315 |          2.20 |      -12.8 |  ₹-128,473 |
 
 ---
 
 #### Year-wise Performance
 
-| Year | Setup | Trades | Win Rate | Expectancy | Net R |  Net PnL | Profit Factor |
-|:----:|:-----:|-------:|---------:|-----------:|------:|---------:|--------------:|
-| 2021 |  EMB  |     25 |    44.0% |      +0.7R | 17.9R | ₹223,273 |           2.4 |
-| 2021 |  EVB  |     26 |    38.5% |      +0.1R |  3.4R |  ₹41,956 |           1.3 |
-| 2022 |  EMB  |     33 |    42.4% |      +0.5R | 15.3R | ₹191,701 |           2.0 |
-| 2022 |  EVB  |     67 |    41.8% |      +0.4R | 24.0R | ₹299,611 |           2.0 |
-| 2023 |  EMB  |     43 |    39.5% |      +0.3R | 11.1R | ₹138,240 |           1.5 |
-| 2023 |  EVB  |    120 |    45.8% |      +0.3R | 39.3R | ₹491,216 |           2.0 |
-| 2024 |  EMB  |    119 |    40.3% |      +0.4R | 51.7R | ₹645,890 |           1.9 |
-| 2024 |  EVB  |    186 |    39.2% |      +0.2R | 41.5R | ₹519,103 |           1.6 |
-| 2025 |  EMB  |    104 |    47.1% |      +0.6R | 63.4R | ₹792,001 |           2.5 |
-| 2025 |  EVB  |    154 |    46.1% |      +0.4R | 63.3R | ₹790,893 |           2.2 |
-| 2026 |  EMB  |     80 |    47.5% |      +0.6R | 50.3R | ₹628,323 |           2.6 |
-| 2026 |  EVB  |    100 |    43.0% |      +0.4R | 42.6R | ₹532,904 |           2.2 |
+| Year | Setup | Trades | Win Rate | Expectancy (Gross R) | Expectancy (Net R) | Total R (Gross) | Total R (Net) |  Total PnL | Profit Factor | Max DD (R) | Max DD (₹) |
+|-----:|:-----:|-------:|---------:|---------------------:|-------------------:|----------------:|--------------:|-----------:|--------------:|-----------:|-----------:|
+| 2021 |  EMB  |     40 |    40.0% |                 0.70 |               0.53 |            28.2 |         21.18 |   ₹211,840 |          2.01 |       -3.5 |   ₹-34,679 |
+| 2021 |  EVB  |      3 |    33.3% |                 0.07 |              -0.12 |             0.2 |         -0.35 |    ₹-3,530 |          0.74 |       -0.6 |    ₹-6,120 |
+| 2022 |  EMB  |     49 |    36.7% |                 0.53 |               0.34 |            26.0 |         16.86 |   ₹168,551 |          1.65 |       -4.3 |   ₹-43,495 |
+| 2022 |  EVB  |      6 |    16.7% |                -0.28 |              -0.48 |            -1.7 |         -2.87 |   ₹-28,657 |          0.21 |       -2.9 |   ₹-28,752 |
+| 2023 |  EMB  |     67 |    40.3% |                 0.48 |               0.30 |            32.4 |         20.27 |   ₹202,690 |          1.65 |       -4.2 |   ₹-42,193 |
+| 2023 |  EVB  |     29 |    20.7% |                 0.07 |              -0.11 |             2.1 |         -3.10 |   ₹-30,999 |          0.81 |       -9.0 |   ₹-90,131 |
+| 2024 |  EMB  |    191 |    40.8% |                 0.85 |               0.67 |           162.7 |        128.72 | ₹1,287,194 |          2.33 |      -12.8 |  ₹-128,473 |
+| 2024 |  EVB  |     51 |    52.9% |                 1.11 |               0.94 |            56.7 |         47.85 |   ₹478,537 |          3.50 |       -3.1 |   ₹-31,331 |
+| 2025 |  EMB  |    147 |    43.5% |                 0.71 |               0.52 |           103.8 |         77.08 |   ₹770,775 |          2.21 |       -5.4 |   ₹-53,697 |
+| 2025 |  EVB  |     50 |    42.0% |                 0.50 |               0.31 |            24.9 |         15.63 |   ₹156,333 |          1.74 |       -4.9 |   ₹-49,107 |
+| 2026 |  EMB  |    120 |    40.8% |                 0.89 |               0.72 |           107.2 |         86.13 |   ₹861,264 |          2.62 |       -5.0 |   ₹-49,974 |
+| 2026 |  EVB  |     47 |    48.9% |                 1.33 |               1.16 |            62.7 |         54.58 |   ₹545,764 |          4.05 |       -3.3 |   ₹-32,753 |
 
 > **Disclaimer:** Backtesting assumes perfect trade execution, ideal fills, and decent slippage. It does not account for
 > human errors, emotional decisions, execution delays, or real market conditions. Therefore, backtest results should not
