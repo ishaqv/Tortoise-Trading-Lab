@@ -61,10 +61,6 @@ def is_valid_breakout_volume(breakout_candle,
 
 
 def is_early_momentum_breakout_detected(breakout_candle):
-    if not is_strong_breakout_candle(breakout_candle):
-        log("info", "Low bullish confidence")
-        return False
-
     if not is_valid_breakout_volume(breakout_candle):
         log("info", "Low volume confidence")
         return False

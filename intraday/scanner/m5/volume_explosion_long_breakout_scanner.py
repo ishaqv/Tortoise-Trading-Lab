@@ -1,40 +1,20 @@
+from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 from util.trade_logger import log
 
+MIN_PCT_CHANGE = 3.5
+MAX_PCT_CHANGE = 7.5
 
-def is_strong_breakout_candle(breakout_candle,
-                              body_threshold=0.6,
-                              max_wick_ratio=0.3,
-                              max_body_atr_multiplier=7):
+buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
+
+
+def is_valid_price_change(breakout_candle):
     """
     Determines whether the breakout candle is a strong, healthy bullish candle(body > 50% and upper wick < 35%).
     """
 
-    breakout_open, breakout_close, breakout_high, breakout_low, breakout_volume, breakout_atr = (
-        breakout_candle['open'], breakout_candle['close'], breakout_candle['high'],
-        breakout_candle['low'], breakout_candle['volume'], breakout_candle['atr']
-    )
-
-    # Must be a bullish candle
-    breakout_candle_range = breakout_high - breakout_low
-    if breakout_close <= breakout_open or breakout_candle_range == 0:
-        return False
-
-    # Body check
-    body = breakout_close - breakout_open
-    body_pct = body / breakout_candle_range
-    if body_pct < body_threshold:
-        return False
-
-    # wick check
-    upper_wick_pct = (breakout_high - breakout_close) / breakout_candle_range
-    if upper_wick_pct > max_wick_ratio:
-        return False
-
-    # Rejecting over extended moves
-    if body > breakout_atr * max_body_atr_multiplier:
-        return False
-
-    return True
+    # % price move from open
+    price_change_pct = round((breakout_candle["close"] - breakout_candle["open"]) / breakout_candle["open"] * 100, 1)
+    return MAX_PCT_CHANGE >= price_change_pct >= MIN_PCT_CHANGE
 
 
 def is_explosive_breakout_volume(breakout_candle,
@@ -48,8 +28,8 @@ def is_explosive_breakout_volume(breakout_candle,
 
 
 def is_volume_explosion_long_breakout_detected(breakout_candle):
-    if not is_strong_breakout_candle(breakout_candle):
-        log("info", "Low bullish confidence")
+    if not is_valid_price_change(breakout_candle):
+        log("info", "Low price change confidence")
         return False
 
     if not is_explosive_breakout_volume(breakout_candle):

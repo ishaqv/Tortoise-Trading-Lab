@@ -28,7 +28,7 @@ REPORT_FOLDER = "reports"
 
 entry_slippage_bp = 2
 stop_slippage_bp = 4
-exit_model = ExitModel.DYNAMIC
+exit_model = ExitModel.STATIC
 
 # --------------------------------------------------------------
 # Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial
@@ -307,8 +307,8 @@ def compute_quantity(entry_price, risk_per_share):
 def process_symbol(
         symbol,
         instrument_token,
-        partial_exit_pct=0.5,  # 0.5 = 50%, 0.3 = 30%
-        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 6,
+        partial_exit_pct=0.4,  # 0.5 = 50%, 0.3 = 30%
+        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 4,
         atr_entry_buffer=0.01
 ):
     ENTRY_LOOKAHEAD_CANDLES = 15
