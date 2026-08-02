@@ -2,8 +2,8 @@ from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 from util.trade_logger import log
 
 # ── CONFIG ────────────────────────────────────────────────
-MIN_PCT_CHANGE = 2.5
-MAX_PCT_CHANGE = 7.5
+MIN_PCT_CHANGE = 3.25
+MAX_PCT_CHANGE = 8.0
 MAX_PARTICIPATION_RATE = 0.65
 buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
 

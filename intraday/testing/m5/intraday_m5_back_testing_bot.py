@@ -12,8 +12,10 @@ from util.entry_type import EntryType
 from util.exit_model_util import ExitModel
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
     INTRADAY_LEVERAGE_MULTIPLIER, \
-    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_TARGET_MULTIPLIER, INTRADAY_M5_CANDLE_LIMIT
+    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_CANDLE_LIMIT, \
+    INTRADAY_M5_ATR_RISK_MULTIPLIER
 from util.kite_util import get_kite
+from util.setup_type import IntradaySetupType
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
 from util.trade_type import TradeType
@@ -29,6 +31,8 @@ REPORT_FOLDER = "reports"
 entry_slippage_bp = 2
 stop_slippage_bp = 4
 exit_model = ExitModel.STATIC
+EVB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EVB travels 2 ATR from entry on average
+EMB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
 
 # --------------------------------------------------------------
 # Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial
@@ -69,6 +73,24 @@ NSE_EQUITY_INTRADAY_CHARGES = {
     "gst": 0.18,
 
 }
+
+
+def get_tick_size(price: float) -> float:
+    """
+    Returns the NSE tick size based on the stock price.
+    """
+    if price < 250:
+        return 0.01
+    elif price <= 1000:
+        return 0.05
+    elif price <= 5000:
+        return 0.10
+    elif price <= 10000:
+        return 0.50
+    elif price <= 20000:
+        return 1.00
+    else:
+        return 5.00
 
 
 def calculate_round_trip_cost(
@@ -308,8 +330,7 @@ def process_symbol(
         symbol,
         instrument_token,
         partial_exit_pct=0.4,  # 0.5 = 50%, 0.3 = 30%
-        final_target_r=INTRADAY_M5_TARGET_MULTIPLIER * 3.25,
-        atr_entry_buffer=0.01
+        entry_buffer_multiplier=2
 ):
     ENTRY_LOOKAHEAD_CANDLES = 15
 
@@ -411,10 +432,11 @@ def process_symbol(
                 # ==========================================================
                 # ENTRY TRIGGER
                 # ==========================================================
+                tick_size = get_tick_size(confirmation_candle["high"])
 
                 if is_long:
                     trigger_price = (
-                            confirmation_candle["high"] + atr_entry_buffer * atr
+                            confirmation_candle["high"] + entry_buffer_multiplier * tick_size
                     )
 
                 else:
@@ -424,7 +446,7 @@ def process_symbol(
                                 confirmation_candle["low"],
                                 breakout_candle["low"]
                             ) -
-                            atr_entry_buffer * atr
+                            entry_buffer_multiplier * tick_size
                     )
 
                 entry_filled = False
@@ -468,6 +490,11 @@ def process_symbol(
                 if df_post_entry.empty:
                     continue
 
+                if result["Setup"] == IntradaySetupType.EVB.name:
+                    target_r = EVB_TARGET_R
+                elif result["Setup"] == IntradaySetupType.EMB.name:
+                    target_r = EMB_TARGET_R
+
                 risk = result["Risk"]
 
                 if risk <= 0:
@@ -490,7 +517,7 @@ def process_symbol(
 
                     static_target = (
                             entry_price +
-                            INTRADAY_M5_TARGET_MULTIPLIER * risk
+                            target_r * risk
                     )
 
                 else:
@@ -499,18 +526,18 @@ def process_symbol(
 
                     static_target = (
                             entry_price -
-                            INTRADAY_M5_TARGET_MULTIPLIER * risk
+                            target_r * risk
                     )
 
                 # ==========================================================
                 # DYNAMIC TARGETS
                 # ==========================================================
-
+                final_target_r = target_r * 3
                 if is_long:
 
                     partial_target = (
                             entry_price +
-                            INTRADAY_M5_TARGET_MULTIPLIER * risk
+                            target_r * risk
                     )
 
                     final_target = (
@@ -522,7 +549,7 @@ def process_symbol(
 
                     partial_target = (
                             entry_price -
-                            INTRADAY_M5_TARGET_MULTIPLIER * risk
+                            target_r * risk
                     )
 
                     final_target = (
@@ -667,7 +694,7 @@ def process_symbol(
                             exit_price = static_target
 
                             pnl_r = (
-                                INTRADAY_M5_TARGET_MULTIPLIER
+                                target_r
                             )
 
                             # STATIC model has only one target, which sits
@@ -744,7 +771,7 @@ def process_symbol(
 
                                 realized_r += (
                                         booked_position *
-                                        INTRADAY_M5_TARGET_MULTIPLIER
+                                        target_r
                                 )
 
                                 # Move to breakeven

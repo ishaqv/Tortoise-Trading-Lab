@@ -2,7 +2,7 @@ from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 from util.trade_logger import log
 
 MIN_PCT_CHANGE = 3.5
-MAX_PCT_CHANGE = 7.5
+MAX_PCT_CHANGE = 9.0
 
 buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
 
@@ -18,7 +18,7 @@ def is_valid_price_change(breakout_candle):
 
 
 def is_explosive_breakout_volume(breakout_candle,
-                                 min_multiplier=25):
+                                 min_multiplier=15):
     """
     breakout_volume should exceed 2 standard deviations above the mean.
     When you see a volume bar above mean + 2σ, it usually signals institutional activity, breakout force

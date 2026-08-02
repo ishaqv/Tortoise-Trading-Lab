@@ -57,11 +57,14 @@ def calculate_gap(df_trading_day, df_previous_day):
     return gap_pct
 
 
-def is_valid_gap_opening(df_trading_day, df_previous_day):
+def is_valid_gap_opening(df_trading_day, df_previous_day, setup_type):
     if len(df_previous_day) < 1:
         return True  # allow first day
     gap_pct = calculate_gap(df_trading_day, df_previous_day)
-    return gap_pct <= MAX_OPENING_GAP_PCT
+    if setup_type == IntradaySetupType.EVB:
+        return gap_pct <= MAX_OPENING_GAP_PCT * 2
+    else:
+        return gap_pct <= MAX_OPENING_GAP_PCT
 
 
 def analyze_stock_for_setup(symbol,
@@ -91,12 +94,6 @@ def analyze_stock_for_setup(symbol,
             log("info", f"Skipping – illiquid stock {symbol}")
             return None
 
-        df_previous_day = get_previous_day_data(df)
-
-        if not is_valid_gap_opening(df_trading_day, df_previous_day):
-            log("info", f"Skipping – huge opening gap detected in stock {symbol}")
-            return None
-
         breakout_candle_date_time = breakout_candle['trade_date']
         breakout_time = breakout_candle_date_time.time()
 
@@ -109,19 +106,24 @@ def analyze_stock_for_setup(symbol,
 
         if breakout_time == EVB_SCAN_CANDLE_TIME:
 
-            # EMB LONG
-            if is_early_momentum_breakout_detected(breakout_candle):
-                setup_type = IntradaySetupType.EMB
-                entry_type = EntryType.LONG
-                is_breakout_detected = True
-
             #  EVB LONG
-            elif is_volume_explosion_long_breakout_detected(breakout_candle):
+            if is_volume_explosion_long_breakout_detected(breakout_candle):
                 setup_type = IntradaySetupType.EVB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 
+            # EMB LONG
+            elif is_early_momentum_breakout_detected(breakout_candle):
+                setup_type = IntradaySetupType.EMB
+                entry_type = EntryType.LONG
+                is_breakout_detected = True
+
         if is_breakout_detected:
+            df_previous_day = get_previous_day_data(df)
+            if not is_valid_gap_opening(df_trading_day, df_previous_day, setup_type):
+                log("info", f"Skipping – huge opening gap detected in stock {symbol}")
+                return None
+
             breakout_atr = breakout_candle['atr']
             spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr, is_backtesting)
             if not is_spread_acceptable(spread_atr_ratio):

@@ -1,8 +1,8 @@
 # Intraday Breakout Trade Setup Detection
 
 This script analyzes **5-minute intraday candlestick data** to evaluate breakout setups for a given stock. It applies
-**price-action and volume-based filters**, and any setup that passes those checks is sent as a
-**trade alert via Telegram**.
+**price-action and volume-based filters**, and any setup that passes those checks is sent as a **trade alert via
+Telegram**.
 
 The scanner **cannot evaluate higher-level context**—such as sector trend, higher-timeframe trend, or nearby supply
 zones—so those must be reviewed **manually before taking any trade**.
@@ -22,13 +22,12 @@ Initializes the trading session by authenticating with the broker and preparing 
 
 ### 🔧 Responsibilities
 
-* Sends a **Telegram alert** with the login URL
-  (`https://kite.zerodha.com/connect/login?v=3&api_key=YOUR_API_KEY`) for manual authentication
+* Sends a **Telegram alert** with the login URL (`https://kite.zerodha.com/connect/login?v=3&api_key=YOUR_API_KEY`) for
+  manual authentication
 * Once authentication is completed, it proceeds to:
 
     * Fetch liquid symbols from the `d1_historical_data` table based on **Average Daily Volume (ADV)** and save them to
-      a
-      CSV file
+      a CSV file
     * Resolve and cache **instrument tokens** for all tracked symbols
 
 ---
@@ -91,7 +90,7 @@ See [`crontab`](crontab) for the full cron schedule.
 ## ✨ Chart Configuration
 
 * **Entry Timeframe**: 5-minute
-* **Indicators**: ATR(14) and Volume SMA 20
+* **Indicators**: ATR (14) and Volume SMA 20
 
 ---
 
@@ -110,7 +109,7 @@ See [`crontab`](crontab) for the full cron schedule.
 
 #### 2. Strong Volume
 
-Volume ≥ 15x average volume(SMA 20 volume)
+Volume ≥ 15x average volume (SMA 20 volume)
 
 ---
 
@@ -156,14 +155,13 @@ opening volatility settles.
 
 3. Filtering logic:
 
-* Sort by **traded value(price * volume)** in DESC
+* Sort by **traded value (price * volume)** in DESC
 * Filter by **price change %** (2-6%)
 * Select the **top 2–3 stocks**
 
 4. Optional:
 
-* Download the CSV file and perform filtering locally by
-  runnning [top_gainers_scanner.py](top_gainers_scanner.py).
+* Download the CSV file and perform filtering locally by runnning [top_gainers_scanner.py](top_gainers_scanner.py).
 
 > Alternatively, select an index (**NIFTY** or **NIFTY NEXT 50**) and apply the filters manually.
 
@@ -182,8 +180,8 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 ## 🔹 Setup 4 — Bull Trap Reversal (BTR)
 
 **Concept:** Identifies stocks that initially showed bullish momentum but failed to sustain it, leading to a reversal.
-This setup reuses the same candidates flagged by the Momentum Breakout scanner(from setup 1/2/3), but trades them in the
-opposite direction — taking SHORT positions instead of LONG.
+This setup reuses the same candidates flagged by the Momentum Breakout scanner (from setup 1/2/3), but trades them in
+the opposite direction — taking SHORT positions instead of LONG.
 
 ![BTR.png](BTR.png)
 
@@ -215,9 +213,9 @@ the early warning.
 
 #### Always have a setup in observation mode
 
-New setup discovery should be a continuous background process, not a scramble triggered by breakdown.
-At any point, maintain at least one setup in observation mode — paper tracking or minimal live size — so that by the
-time a primary setup deteriorates, you already have 3–6 months of live data behind the candidate.
+New setup discovery should be a continuous background process, not a scramble triggered by breakdown. At any point,
+maintain at least one setup in observation mode — paper tracking or minimal live size — so that by the time a primary
+setup deteriorates, you already have 3–6 months of live data behind the candidate.
 ---
 
 ## 🧮 Position Size Calculator
@@ -251,8 +249,8 @@ Position size is calculated using the logic below.
 Enter your **Trading Capital**, **Symbol**, and **ATR** to calculate the recommended **Quantity**, **Stop Loss**, and
 **Target**.
 
-> **Entry Price** is preferred. If left blank, the calculator will automatically fetch the symbol's **Day
-High** via Google Finance and use it as the entry price.
+> **Entry Price** is preferred. If left blank, the calculator will automatically fetch the symbol's **Day High** via
+> Google Finance and use it as the entry price.
 
 ```
 ⚠️ This is a shared read-only template. To use it, go to File → Make a copy to save your own version to Google Drive. All changes should be made in your personal copy.
@@ -287,6 +285,44 @@ High** via Google Finance and use it as the entry price.
 ![SL-M SELL.png](SL-M%20SELL.png)
 
 ``⚠️ SL-M orders can experience slippage during periods of low liquidity or high volatility. In such situations, your order may execute at a lower price significantly different from your intended exit price.``
+
+#### Entry Candle Protection Rule
+
+Problem: Normal volatility on the entry candle triggers the stop before the trade has a chance to develop.
+
+Solution: Start with a wider initial stop to withstand entry-candle volatility, then tighten it after the candle closes.
+
+```
+                     Entry Filled
+                          │
+                          ▼
+              Activate 2R Emergency Stop
+                          │
+                          ▼
+      Did Emergency Stop Trigger During Entry Candle?
+                    │                    │
+                  YES                   NO
+                    │                    │
+                    ▼                    ▼
+              Exit at 2R          Wait for Candle Close
+                                       │
+                                       ▼
+                     Is Close Above Normal 1R Stop?
+                             │                 │
+                           YES                NO
+                             │                 │
+                             ▼                 ▼
+                  Cancel Emergency Stop   Is Close Above
+                  Activate Normal 1R SL   Emergency Stop?
+                             │                 │
+                             ▼          ┌──────┴──────┐
+                          Continue      │             │
+                         Trade Normally YES           NO
+                                         │             │
+                                         ▼             ▼
+                               Exit at Candle     Already Exited
+                               Close (1R–2R)      at 2R Stop
+```
 
 ---
 
