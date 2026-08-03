@@ -553,3 +553,5 @@ As a general guideline, consider using a partial exit strategy when you observe 
 ---
 
 #### Stay consistent. Follow the rules. Let the edge play out.
+
+![trading_playbook.png](trading_playbook.png)
