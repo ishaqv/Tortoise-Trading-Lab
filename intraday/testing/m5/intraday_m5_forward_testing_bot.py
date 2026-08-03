@@ -5,7 +5,7 @@ import pandas as pd
 from intraday.scanner.m5.intraday_m5_breakout_scanner_bot import add_technical_indicators, \
     analyze_stock_for_setup
 from util.db_util import get_table_name, fetch_data
-from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT
+from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT, ENABLE_CONSOLE_LOGGING
 from util.trade_logger import initialize_logger
 from util.trade_type import TradeType
 
@@ -74,9 +74,9 @@ def get_stock_df_from_db(symbol, breakout_window):
 
 
 if __name__ == "__main__":
-    initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}", log_to_console=True)
+    initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}", ENABLE_CONSOLE_LOGGING)
 
-    stock = "SONATSOFTW"  # NSE Top Gainer stock for backtest
+    stock = "URBANCO"  # NSE Top Gainer stock for backtest
 
     # Use data from 2 days ago for testing
     trading_day = datetime.today() - timedelta(days=0)

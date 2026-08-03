@@ -13,7 +13,7 @@ from util.exit_model_util import ExitModel
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
     INTRADAY_LEVERAGE_MULTIPLIER, \
     EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_CANDLE_LIMIT, \
-    INTRADAY_M5_ATR_RISK_MULTIPLIER
+    INTRADAY_M5_ATR_RISK_MULTIPLIER, ENABLE_CONSOLE_LOGGING
 from util.kite_util import get_kite
 from util.setup_type import IntradaySetupType
 from util.shariah_stock_filter import get_symbol_instrument_token
@@ -30,7 +30,7 @@ REPORT_FOLDER = "reports"
 
 entry_slippage_bp = 2
 stop_slippage_bp = 4
-exit_model = ExitModel.STATIC
+exit_model = ExitModel.DYNAMIC
 EVB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EVB travels 2 ATR from entry on average
 EMB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
 
