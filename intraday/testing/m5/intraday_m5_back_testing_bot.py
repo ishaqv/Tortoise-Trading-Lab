@@ -13,7 +13,7 @@ from util.exit_model_util import ExitModel
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
     INTRADAY_LEVERAGE_MULTIPLIER, \
     EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_CANDLE_LIMIT, \
-    INTRADAY_M5_ATR_RISK_MULTIPLIER, VWAP_SCAN_CANDLE_START_TIME, VWAP_SCAN_CANDLE_END_TIME
+    INTRADAY_M5_ATR_RISK_MULTIPLIER
 from util.kite_util import get_kite
 from util.setup_type import IntradaySetupType
 from util.shariah_stock_filter import get_symbol_instrument_token
@@ -220,11 +220,6 @@ BREAKOUT_WINDOWS = [
         "name": "EVB",
         "start": EVB_SCAN_CANDLE_TIME,
         "end": EVB_SCAN_CANDLE_TIME
-    },
-    {
-        "name": "VWAP",
-        "start": VWAP_SCAN_CANDLE_START_TIME,
-        "end": VWAP_SCAN_CANDLE_END_TIME
     }
 ]
 
