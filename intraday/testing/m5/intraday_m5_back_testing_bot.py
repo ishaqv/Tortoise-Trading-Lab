@@ -13,7 +13,7 @@ from util.exit_model_util import ExitModel
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
     INTRADAY_LEVERAGE_MULTIPLIER, \
     EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_CANDLE_LIMIT, \
-    INTRADAY_M5_ATR_RISK_MULTIPLIER, ENABLE_CONSOLE_LOGGING
+    INTRADAY_M5_ATR_RISK_MULTIPLIER, VWAP_SCAN_CANDLE_START_TIME, VWAP_SCAN_CANDLE_END_TIME
 from util.kite_util import get_kite
 from util.setup_type import IntradaySetupType
 from util.shariah_stock_filter import get_symbol_instrument_token
@@ -33,6 +33,7 @@ stop_slippage_bp = 4
 exit_model = ExitModel.STATIC
 EVB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EVB travels 2 ATR from entry on average
 EMB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
+VWAP_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
 
 # --------------------------------------------------------------
 # Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial
@@ -218,6 +219,11 @@ BREAKOUT_WINDOWS = [
         "name": "EVB",
         "start": EVB_SCAN_CANDLE_TIME,
         "end": EVB_SCAN_CANDLE_TIME
+    },
+    {
+        "name": "VWAP",
+        "start": VWAP_SCAN_CANDLE_START_TIME,
+        "end": VWAP_SCAN_CANDLE_END_TIME
     }
 ]
 
@@ -337,7 +343,7 @@ def process_symbol(
     initialize_logger(
         TradeType.INTRADAY,
         f"m{INTRADAY_M5_CANDLE_SIZE}",
-        ENABLE_CONSOLE_LOGGING
+        True
     )
 
     file_path = get_file_path(symbol)
@@ -494,6 +500,8 @@ def process_symbol(
                     target_r = EVB_TARGET_R
                 elif result["Setup"] == IntradaySetupType.EMB.name:
                     target_r = EMB_TARGET_R
+                elif result["Setup"] == IntradaySetupType.VWAP.name:
+                    target_r = VWAP_TARGET_R
 
                 risk = result["Risk"]
 
@@ -1848,7 +1856,7 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
 # =========================================================
 
 if __name__ == "__main__":
-    initialize_logger(TradeType.INTRADAY, "m5", ENABLE_CONSOLE_LOGGING)
+    initialize_logger(TradeType.INTRADAY, "m5", True)
 
     # load symbols and instrument token
     symbol_token_map = get_symbol_instrument_token(LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH)
