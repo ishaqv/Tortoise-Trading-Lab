@@ -1,4 +1,4 @@
-from util.global_variables import INTRADAY_M5_CANDLE_SIZE, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH
+from util.global_variables import INTRADAY_M5_CANDLE_SIZE, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, ENABLE_CONSOLE_LOGGING
 from util.kite_util import init_kite_session
 from util.shariah_stock_filter import get_symbol_instrument_token
 
@@ -14,7 +14,7 @@ def run_warmup() -> None:
     """
     try:
         # init logging
-        initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}")
+        initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}", ENABLE_CONSOLE_LOGGING)
 
         # init kite
         init_kite_session()

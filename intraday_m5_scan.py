@@ -1,6 +1,6 @@
 from intraday.scanner.m5.intraday_m5_breakout_scanner_bot import run_intraday_screener
 from util.db_util import get_table_name, get_historical_data_for_symbols, write_historical_data
-from util.global_variables import INTRADAY_M5_CANDLE_SIZE, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH
+from util.global_variables import INTRADAY_M5_CANDLE_SIZE, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, ENABLE_CONSOLE_LOGGING
 from util.historical_candle_data_util import append_latest_candle_data_from_kite
 from util.kite_util import init_kite_session
 from util.shariah_stock_filter import get_symbol_instrument_token
@@ -16,7 +16,7 @@ def run_scan() -> None:
     """
     try:
         # init logging
-        initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}")
+        initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}", ENABLE_CONSOLE_LOGGING)
 
         # init kite
         init_kite_session()

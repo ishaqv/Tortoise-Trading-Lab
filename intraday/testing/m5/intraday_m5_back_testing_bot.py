@@ -337,7 +337,7 @@ def process_symbol(
     initialize_logger(
         TradeType.INTRADAY,
         f"m{INTRADAY_M5_CANDLE_SIZE}",
-        log_to_console=True
+        ENABLE_CONSOLE_LOGGING
     )
 
     file_path = get_file_path(symbol)
@@ -1848,7 +1848,7 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
 # =========================================================
 
 if __name__ == "__main__":
-    initialize_logger(TradeType.INTRADAY, "m5")
+    initialize_logger(TradeType.INTRADAY, "m5", ENABLE_CONSOLE_LOGGING)
 
     # load symbols and instrument token
     symbol_token_map = get_symbol_instrument_token(LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH)

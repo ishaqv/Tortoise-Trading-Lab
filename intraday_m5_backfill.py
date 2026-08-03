@@ -1,6 +1,6 @@
 from util.db_util import get_table_name, purge_old_historical_data, get_last_stored_ts_for_symbols
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT, \
-    LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH
+    LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, ENABLE_CONSOLE_LOGGING
 from util.historical_candle_data_util import persist_historical_data
 from util.kite_util import init_kite_session
 from util.shariah_stock_filter import get_symbol_instrument_token
@@ -16,7 +16,7 @@ def run_backfill() -> None:
     """
     try:
         # init logging
-        initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}")
+        initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}", ENABLE_CONSOLE_LOGGING)
 
         # init kite
         init_kite_session()
