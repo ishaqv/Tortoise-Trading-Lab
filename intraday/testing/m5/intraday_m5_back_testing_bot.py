@@ -213,6 +213,7 @@ def _slip_atr(row_atr, fallback_atr):
         return fallback_atr
     return row_atr
 
+
 # ─── Breakout windows ─────────────────────────────────────────────────────────
 BREAKOUT_WINDOWS = [
     {
@@ -460,7 +461,6 @@ def process_symbol(
                 for row in df_entry_window.itertuples():
 
                     if row.low <= trigger_price <= row.high:
-
                         entry_price = trigger_price
 
                         # Slippage does NOT shift the entry fill (and
@@ -1124,7 +1124,6 @@ def process_symbol(
                     # rupee P&L, never the trade geometry.
                     "Gross PnL": round(pnl_r * risk * qty, 2),
 
-
                     "SlippagePerShare": round(
                         entry_slippage_per_share + exit_slippage_per_share, 4
                     ),
@@ -1631,7 +1630,6 @@ def print_setup_summary(df):
     summary.to_csv(os.path.join(REPORT_FOLDER, "setup_summary.csv"))
 
 
-
 def print_yearly_summary(df):
     df = df.copy()
     df["Year"] = df["Entry Time"].dt.year
@@ -1691,7 +1689,6 @@ def print_yearly_summary(df):
     # CSV export
     os.makedirs(REPORT_FOLDER, exist_ok=True)
     yearly.to_csv(os.path.join(REPORT_FOLDER, "yearly_summary.csv"))
-
 
 
 def print_target_hit_summary(df):

@@ -11,7 +11,8 @@ from util.entry_type import EntryType
 from util.exit_model_util import ExitModel
 from util.global_variables import INTRADAY_M15_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
     INTRADAY_LEVERAGE_MULTIPLIER, \
-    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M15_TARGET_MULTIPLIER, INTRADAY_M15_CANDLE_LIMIT
+    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M15_TARGET_MULTIPLIER, \
+    INTRADAY_M15_CANDLE_LIMIT
 from util.kite_util import get_kite
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
@@ -35,6 +36,7 @@ def _slip_atr(row_atr, fallback_atr):
     if row_atr is None or pd.isna(row_atr) or row_atr <= 0:
         return fallback_atr
     return row_atr
+
 
 # ─── Breakout windows ─────────────────────────────────────────────────────────
 BREAKOUT_WINDOWS = [
@@ -279,7 +281,6 @@ def process_symbol(
                 for row in df_entry_window.itertuples():
 
                     if row.low <= trigger_price <= row.high:
-
                         entry_price = trigger_price
 
                         # Slippage does NOT shift the entry fill (and

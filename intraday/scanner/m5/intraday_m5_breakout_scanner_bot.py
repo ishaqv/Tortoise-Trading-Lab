@@ -143,8 +143,6 @@ def analyze_stock_for_setup(symbol,
                     'Risk': risk_per_share
                 }
 
-
-
             entry_type_icon = "🟢" if entry_type == EntryType.LONG else "🔴"
 
             message = (

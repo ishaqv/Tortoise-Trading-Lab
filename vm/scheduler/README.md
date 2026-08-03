@@ -3,8 +3,8 @@
 This project automatically **starts and stops a GCP VM** during **NSE trading hours** using **Cloud Functions**
 and **Cloud Scheduler**.
 
-GCP does not support timer-triggered functions directly, so we use an HTTP-triggered Cloud Function scheduled
-with Cloud Scheduler.
+GCP does not support timer-triggered functions directly, so we use an HTTP-triggered Cloud Function scheduled with Cloud
+Scheduler.
 
 ## Project Structure
 
@@ -18,7 +18,7 @@ with Cloud Scheduler.
 
 Install the **Google Cloud SDK (`gcloud`)** if it’s not already installed.
 
-### Grant Service Account Permissions(IAM roles)
+### Grant Service Account Permissions (IAM roles)
 
 The default service account needs permission to build artifacts. Run:
 

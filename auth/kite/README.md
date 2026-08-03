@@ -34,7 +34,7 @@ Before deploying, make sure you have:
 cd auth/kite
 ```
 
-### 3. Grant Service Account Permissions(IAM roles)
+### 3. Grant Service Account Permissions (IAM roles)
 
 The default service account needs permission to build artifacts. Run:
 
