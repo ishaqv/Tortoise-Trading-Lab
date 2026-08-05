@@ -31,9 +31,8 @@ REPORT_FOLDER = "reports"
 entry_slippage_bp = 2
 stop_slippage_bp = 4
 exit_model = ExitModel.STATIC
-EVB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EVB travels 2 ATR from entry on average
-EMB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
-VWAP_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
+EVB_TARGET_R = 2.05 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EVB travels 2 ATR from entry on average
+EMB_TARGET_R = 1.85 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
 
 # --------------------------------------------------------------
 # Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial

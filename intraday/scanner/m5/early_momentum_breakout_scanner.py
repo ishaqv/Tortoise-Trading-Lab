@@ -1,72 +1,29 @@
-from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
+from util.scanner_util import is_liquid_breakout, is_valid_opening_gap, is_valid_price_change, is_valid_breakout_volume
 from util.trade_logger import log
 
-# ── CONFIG ────────────────────────────────────────────────
-MIN_PCT_CHANGE = 3.25
-MAX_PCT_CHANGE = 8.0
+# ── CONFIG ────────────────
+MIN_PRICE_CHANGE = 3.25
+MAX_PRICE_CHANGE = 8.5
+MAX_OPENING_GAP_PCT = 2.0
 MAX_PARTICIPATION_RATE = 0.65
-buying_power = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
+MIN_VOLUME_MULTIPLIER = 2
 
 
-def is_strong_breakout_candle(breakout_candle,
-                              body_threshold=0.6,
-                              max_wick_ratio=0.3):
-    """
-    Determines whether the breakout candle is a strong, healthy bullish candle(body > 50% and upper wick < 35%).
-    """
-
-    breakout_open, breakout_close, breakout_high, breakout_low, breakout_volume, breakout_atr = (
-        breakout_candle['open'], breakout_candle['close'], breakout_candle['high'],
-        breakout_candle['low'], breakout_candle['volume'], breakout_candle['atr']
-    )
-
-    # Must be a bullish candle
-    breakout_candle_range = breakout_high - breakout_low
-    if breakout_close <= breakout_open or breakout_candle_range == 0:
+def is_early_momentum_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
+    if not is_liquid_breakout(participation_rate, MAX_PARTICIPATION_RATE):
+        log("info", "EMB - Low participation confidence")
         return False
 
-    # Body check
-    body = breakout_close - breakout_open
-    body_pct = body / breakout_candle_range
-    if body_pct < body_threshold:
+    if not is_valid_opening_gap(opening_gap_pct, MAX_OPENING_GAP_PCT):
+        log("info", "EMB - Low gap confidence")
         return False
 
-    # wick check
-    upper_wick_pct = (breakout_high - breakout_close) / breakout_candle_range
-    if upper_wick_pct > max_wick_ratio:
+    if not is_valid_price_change(breakout_candle, MIN_PRICE_CHANGE, MAX_PRICE_CHANGE):
+        log("info", "EMB - Low price change confidence")
         return False
 
-    return True
-
-
-def is_early_momentum_breakout_candle(breakout_candle):
-    # % price move from open
-    price_change_pct = round((breakout_candle["close"] - breakout_candle["open"]) / breakout_candle["open"] * 100, 1)
-
-    # Liquidity  condition
-    participation_rate = round(
-        (buying_power * 100) /
-        (breakout_candle["close"] * breakout_candle["volume"]),
-        2
-    )
-
-    return MAX_PCT_CHANGE >= price_change_pct >= MIN_PCT_CHANGE and participation_rate <= MAX_PARTICIPATION_RATE
-
-
-def is_valid_breakout_volume(breakout_candle,
-                             min_multiplier=3):
-    """
-    """
-    return breakout_candle['volume'] > min_multiplier * breakout_candle['volume_sma_20']
-
-
-def is_early_momentum_breakout_detected(breakout_candle):
-    if not is_valid_breakout_volume(breakout_candle):
-        log("info", "Low volume confidence")
-        return False
-
-    if not is_early_momentum_breakout_candle(breakout_candle):
-        log("info", "Low momemtum confidence")
+    if not is_valid_breakout_volume(breakout_candle, MIN_VOLUME_MULTIPLIER):
+        log("info", "EMB - Low volume confidence")
         return False
 
     return True

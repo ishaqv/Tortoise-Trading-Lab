@@ -34,7 +34,7 @@ def is_liquid_breakout(breakout_candle):
             buying_power / breakout_value
     )
 
-    return participation_rate <= MAX_BREAKOUT_PARTICIPATION
+    return participation_rate <= MAX_PARTICIPATION_RATE
 
 
 def get_previous_day_data(df):

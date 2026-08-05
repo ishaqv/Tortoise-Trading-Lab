@@ -11,8 +11,8 @@ from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 # ── CONFIG ────────────────────────────────────────────────
 MIN_PCT_CHANGE = 3.0
 MAX_PCT_CHANGE = 8.0
-MAX_OPENING_GAP_PCT = 2.0
-MAX_PARTICIPATION_RATE = 0.65
+MAX_OPENING_GAP_PCT = 3.0
+MAX_PARTICIPATION_RATE = 1.0
 
 # ── FILE ──────────────────────────────────────────────────
 
@@ -45,9 +45,9 @@ def main():
     # FILTER CONDITIONS
     # =========================
     filtered = df[
-        # (df["price_change_%"] >= MIN_PCT_CHANGE) &
-        # (df["price_change_%"] <= MAX_PCT_CHANGE) &
-        # (df["gap_pct"] <= MAX_OPENING_GAP_PCT) &
+        (df["price_change_%"] >= MIN_PCT_CHANGE) &
+        (df["price_change_%"] <= MAX_PCT_CHANGE) &
+        (df["gap_pct"] <= MAX_OPENING_GAP_PCT) &
         (df["participation_rate"] <= MAX_PARTICIPATION_RATE)
         ]
 

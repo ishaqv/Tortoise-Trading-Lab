@@ -13,6 +13,7 @@ from util.telegram_bot import send_telegram_alert
 from util.trade_logger import log
 from util.trade_type import TradeType
 
+MAX_PARTICIPATION_RATE = 1.0
 
 def is_liquid_stock(breakout_candle):
     breakout_value = (
@@ -29,7 +30,7 @@ def is_liquid_stock(breakout_candle):
             effective_capital / breakout_value
     )
 
-    return participation_rate <= MAX_BREAKOUT_PARTICIPATION
+    return participation_rate <= MAX_PARTICIPATION_RATE
 
 
 def analyze_stock_for_setup(symbol,

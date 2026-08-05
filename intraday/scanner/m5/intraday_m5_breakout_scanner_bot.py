@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from time import sleep
 
+import math
 import numpy as np
 import pandas as pd
 from ta.volatility import AverageTrueRange
@@ -17,27 +18,6 @@ from util.trade_logger import log
 from util.trade_type import TradeType
 
 
-def is_liquid_breakout(breakout_candle):
-    breakout_value = (
-            breakout_candle['close'] *
-            breakout_candle['volume']
-    )
-
-    if breakout_value <= 0:
-        return False
-
-    buying_power = (
-            TRADING_CAPITAL *
-            INTRADAY_LEVERAGE_MULTIPLIER
-    )
-
-    participation_rate = (
-            buying_power / breakout_value
-    )
-
-    return participation_rate <= MAX_BREAKOUT_PARTICIPATION
-
-
 def get_previous_day_data(df):
     date_only = df['trade_date'].dt.date
     unique_dates = date_only.unique()
@@ -49,22 +29,19 @@ def get_previous_day_data(df):
     return df[date_only == yesterday].copy()
 
 
-def calculate_gap(df_trading_day, df_previous_day):
+def calculate_opening_gap(df_trading_day, df_previous_day):
     today_open = df_trading_day.iloc[0].open
     yesterday_close = df_previous_day.iloc[-1].close
-    # Gap from previous close
-    gap_pct = round(abs(today_open - yesterday_close) / yesterday_close * 100, 1)
+
+    if yesterday_close <= 0:
+        return 0.0
+
+    gap_pct = round(
+        abs(today_open - yesterday_close) / yesterday_close * 100,
+        1
+    )
+
     return gap_pct
-
-
-def is_valid_gap_opening(df_trading_day, df_previous_day, setup_type):
-    if len(df_previous_day) < 1:
-        return True  # allow first day
-    gap_pct = calculate_gap(df_trading_day, df_previous_day)
-    if setup_type == IntradaySetupType.EVB:
-        return gap_pct <= MAX_OPENING_GAP_PCT * 2
-    else:
-        return gap_pct <= MAX_OPENING_GAP_PCT
 
 
 def analyze_stock_for_setup(symbol,
@@ -90,14 +67,14 @@ def analyze_stock_for_setup(symbol,
 
         breakout_candle = df_trading_day.iloc[BREAKOUT_CANDLE_IDX]
 
-        if not is_liquid_breakout(breakout_candle):
-            log("info", f"Skipping – illiquid stock {symbol}")
-            return None
-
         breakout_candle_date_time = breakout_candle['trade_date']
         breakout_time = breakout_candle_date_time.time()
 
         log("info", f"Evaluating {symbol} | breakout_candle: {breakout_candle_date_time}")
+
+        df_previous_day = get_previous_day_data(df)
+        opening_gap_pct = calculate_opening_gap(df_trading_day, df_previous_day)
+        participation_rate = get_participation_rate(breakout_candle)
 
         setup_type = None
         entry_type = None
@@ -107,32 +84,20 @@ def analyze_stock_for_setup(symbol,
         if breakout_time == EVB_SCAN_CANDLE_TIME:
 
             #  EVB LONG
-            if is_volume_explosion_long_breakout_detected(breakout_candle):
+            if is_volume_explosion_long_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
                 setup_type = IntradaySetupType.EVB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 
             # EMB LONG
-            elif is_early_momentum_breakout_detected(breakout_candle):
+            elif is_early_momentum_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
                 setup_type = IntradaySetupType.EMB
                 entry_type = EntryType.LONG
                 is_breakout_detected = True
 
         if is_breakout_detected:
-            df_previous_day = get_previous_day_data(df)
-            if not is_valid_gap_opening(df_trading_day, df_previous_day, setup_type):
-                log("info", f"Skipping – huge opening gap detected in stock {symbol}")
-                return None
-
             breakout_atr = breakout_candle['atr']
-            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr, is_backtesting)
-            if not is_spread_acceptable(spread_atr_ratio):
-                message = f"Breakout rejected for {symbol} — spread (spread_atr_ratio = {round(spread_atr_ratio * 100, 1)}) too wide"
-                log("warning", message)
-                send_telegram_alert(message)
-                return None
-
-            risk_per_share = get_risk_per_share(breakout_atr, spread_atr_ratio)
+            risk_per_share = get_risk_per_share(breakout_atr)
             if is_backtesting:
                 return {
                     'Symbol': symbol,
@@ -142,6 +107,14 @@ def analyze_stock_for_setup(symbol,
                     'Entry Type': entry_type.name,
                     'Risk': risk_per_share
                 }
+
+            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
+
+            if not is_spread_acceptable(spread_atr_ratio):
+                message = f"Breakout rejected for {symbol} — spread (spread_atr_ratio = {round(spread_atr_ratio * 100, 1)}) too wide"
+                log("warning", message)
+                send_telegram_alert(message)
+                return None
 
             entry_type_icon = "🟢" if entry_type == EntryType.LONG else "🔴"
 
@@ -159,6 +132,61 @@ def analyze_stock_for_setup(symbol,
 
     except Exception as e:
         log("error", f"Error in analyzing stock {symbol}: {e}", exc_info=True)
+
+
+def get_participation_rate(breakout_candle):
+    # Use the expected entry price
+    breakout_price = breakout_candle["high"]
+
+    breakout_value = breakout_price * breakout_candle["volume"]
+    if breakout_value <= 0:
+        return float("inf")  # Always fail liquidity filter
+
+    # Risk per share
+    risk_per_share = (
+            breakout_candle["atr"] *
+            INTRADAY_M5_ATR_RISK_MULTIPLIER
+    )
+
+    if risk_per_share <= 0:
+        return float("inf")
+
+    # Available buying power
+    buying_power = (
+            TRADING_CAPITAL *
+            INTRADAY_LEVERAGE_MULTIPLIER
+    )
+
+    # Maximum ₹ risk per trade
+    R = (
+            TRADING_CAPITAL *
+            MAX_RISK_PER_TRADE_PERCENT
+    )
+
+    # Risk-based quantity
+    risk_based_qty = R / risk_per_share
+
+    # Capital-based quantity
+    capital_based_qty = buying_power / breakout_price
+
+    # Actual tradable quantity (whole shares only)
+    tradable_qty = math.floor(
+        min(risk_based_qty, capital_based_qty)
+    )
+
+    if tradable_qty <= 0:
+        return float("inf")
+
+    # Actual order value
+    order_value = tradable_qty * breakout_price
+
+    # Percent of breakout candle liquidity consumed
+    participation_rate = round(
+        (order_value / breakout_value) * 100,
+        1
+    )
+
+    return participation_rate
 
 
 def add_technical_indicators(df):
@@ -199,23 +227,16 @@ def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:
     log("info", "Screener completed.")
 
 
-def get_risk_per_share(breakout_atr, spread_atr_ratio):
+def get_risk_per_share(breakout_atr):
     """
     """
-    if spread_atr_ratio > 0.075:
-        return round(breakout_atr * INTRADAY_M5_ATR_RISK_MULTIPLIER * 1.5, 1)
-    elif spread_atr_ratio > 0.05:
-        return round(breakout_atr * INTRADAY_M5_ATR_RISK_MULTIPLIER * 1.25, 1)
     return round(breakout_atr * INTRADAY_M5_ATR_RISK_MULTIPLIER, 1)
 
 
-def get_spread_atr_ratio(symbol, atr, is_backtesting, samples=5, delay=0.2):
+def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
     """
     Stable spread/ATR ratio using median spread sampling.
     """
-    if is_backtesting:
-        return 0
-
     if atr <= 0:
         return None
 
