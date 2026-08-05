@@ -4,9 +4,9 @@ from util.trade_logger import log
 # ── CONFIG ────────────────
 MIN_PRICE_CHANGE = 3.25
 MAX_PRICE_CHANGE = 8.5
-MAX_OPENING_GAP_PCT = 2.0
-MAX_PARTICIPATION_RATE = 0.65
-MIN_VOLUME_MULTIPLIER = 2
+MAX_OPENING_GAP_PCT = 2.5
+MAX_PARTICIPATION_RATE = 0.85
+MIN_VOLUME_MULTIPLIER = 3
 
 
 def is_early_momentum_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
