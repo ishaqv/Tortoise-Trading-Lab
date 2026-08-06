@@ -55,6 +55,16 @@ R = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
 # CONFIGURATION
 # ----------------------------
 
+# ─── Breakout windows ─────────────────────────────────────────────────────────
+BREAKOUT_WINDOWS = [
+    {
+        "name": "EVB",
+        "start": EVB_SCAN_CANDLE_TIME,
+        "end": EVB_SCAN_CANDLE_TIME
+    }
+]
+
+
 # ==========================================================
 # NSE Equity Intraday Charges
 # ==========================================================
@@ -203,24 +213,6 @@ def calculate_round_trip_cost(
         "total": round(total, 2)
 
     }
-
-
-def _slip_atr(row_atr, fallback_atr):
-    """Use the bar's own ATR when available/valid, else fall back to the
-    ATR captured at breakout/entry time."""
-    if row_atr is None or pd.isna(row_atr) or row_atr <= 0:
-        return fallback_atr
-    return row_atr
-
-
-# ─── Breakout windows ─────────────────────────────────────────────────────────
-BREAKOUT_WINDOWS = [
-    {
-        "name": "EVB",
-        "start": EVB_SCAN_CANDLE_TIME,
-        "end": EVB_SCAN_CANDLE_TIME
-    }
-]
 
 
 def get_file_path(symbol):
@@ -461,9 +453,7 @@ def process_symbol(
                         # therefore does not shift stop/target geometry).
                         # It is tracked as a separate per-share cost and
                         # deducted only from the rupee P&L later.
-                        entry_bar_atr = _slip_atr(
-                            getattr(row, "atr", None), atr
-                        )
+
                         entry_slippage_per_share = (
                                 entry_price * entry_slippage_bp / 10000
 
@@ -494,8 +484,7 @@ def process_symbol(
                     target_r = EVB_TARGET_R
                 elif result["Setup"] == IntradaySetupType.EMB.name:
                     target_r = EMB_TARGET_R
-                elif result["Setup"] == IntradaySetupType.VWAP.name:
-                    target_r = VWAP_TARGET_R
+
 
                 risk = result["Risk"]
 
@@ -718,9 +707,7 @@ def process_symbol(
 
                             pnl_r = -1
 
-                            exit_bar_atr = _slip_atr(
-                                getattr(row, "atr", None), atr
-                            )
+
                             exit_slippage_per_share = (
                                     exit_price * stop_slippage_bp / 10000
                             )
@@ -788,9 +775,7 @@ def process_symbol(
 
                                 pnl_r = -1
 
-                                exit_bar_atr = _slip_atr(
-                                    getattr(row, "atr", None), atr
-                                )
+
                                 exit_slippage_per_share = (
                                         exit_price * stop_slippage_bp / 10000
                                 )
@@ -893,9 +878,7 @@ def process_symbol(
 
                                 exit_price = trailing_stop
 
-                                exit_bar_atr = _slip_atr(
-                                    getattr(row, "atr", None), atr
-                                )
+
                                 exit_slippage_per_share = (
                                         exit_price * stop_slippage_bp / 10000
                                 )
@@ -1415,7 +1398,6 @@ def print_key_metrics_table(df, window=20):
     avg_win_loss_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else float("inf")
     expectancy_net = df["R"].mean()
     expectancy_gross = df["R_Gross"].mean() if "R_Gross" in df.columns else float("nan")
-    expectancy = expectancy_net  # kept for any other internal references below
     best_trade_r = df["R"].max()
     worst_trade_r = df["R"].min()
 
@@ -1473,6 +1455,20 @@ def print_key_metrics_table(df, window=20):
     months_span = max((end_date - start_date).days / 30.44, 1e-6)
     trades_per_month = total_trades / months_span
 
+    # Actual calendar-month trade counts (Jan, Feb, ... buckets), rather than
+    # the /30.44-day approximation above. Used for Max/Min/Avg Trades per
+    # Month. Note: the first and last buckets may be partial calendar months
+    # if the backtest doesn't start/end exactly on the 1st, so Min can look
+    # artificially low — check monthly_trade_counts.csv if that matters.
+    monthly_trade_counts = df.groupby(
+        df["Entry Time"].dt.tz_localize(None).dt.to_period("M")
+        if df["Entry Time"].dt.tz is not None
+        else df["Entry Time"].dt.to_period("M")
+    ).size()
+    max_trades_month = int(monthly_trade_counts.max()) if len(monthly_trade_counts) else 0
+    min_trades_month = int(monthly_trade_counts.min()) if len(monthly_trade_counts) else 0
+    avg_trades_month_actual = monthly_trade_counts.mean() if len(monthly_trade_counts) else 0.0
+
     if len(df) >= window:
         rolling_exp = df["R"].rolling(window).mean().iloc[-1]
         rolling_exp_gross = df["R_Gross"].rolling(window).mean().iloc[-1] if "R_Gross" in df.columns else float("nan")
@@ -1529,7 +1525,10 @@ def print_key_metrics_table(df, window=20):
         ("Costs", "Cost Drag (% of Gross PnL)", f"{cost_drag_pct:.2f}%" if cost_drag_pct == cost_drag_pct else "n/a"),
         ("Risk", "% Trades Leverage-Constrained",
          f"{pct_leverage_constrained:.2f}%" if "Leverage_Constrained" in df.columns else "n/a"),
-        ("Frequency", "Avg Trades / Month", f"{trades_per_month:.2f}"),
+        ("Frequency", "Avg Trades / Month (span-based)", f"{trades_per_month:.2f}"),
+        ("Frequency", "Avg Trades / Month (calendar)", f"{avg_trades_month_actual:.2f}"),
+        ("Frequency", "Max Trades / Month", f"{max_trades_month}"),
+        ("Frequency", "Min Trades / Month", f"{min_trades_month}"),
         ("Recent Edge", f"Rolling {window}-Trade Expectancy (Gross)",
          f"{rolling_exp_gross:.2f} R" if rolling_exp_gross == rolling_exp_gross else "n/a"),
         ("Recent Edge", f"Rolling {window}-Trade Expectancy (Net)",
@@ -1547,6 +1546,13 @@ def print_key_metrics_table(df, window=20):
     # CSV export — full rolling series kept separately for charting trend
     os.makedirs(REPORT_FOLDER, exist_ok=True)
     table.to_csv(os.path.join(REPORT_FOLDER, "key_metrics_summary.csv"), index=False)
+
+    # Per-calendar-month trade counts, so Max/Min/Avg Trades per Month above
+    # can be traced back to the actual months driving them.
+    monthly_counts_df = monthly_trade_counts.rename("Trades").reset_index()
+    monthly_counts_df.columns = ["Month", "Trades"]
+    monthly_counts_df["Month"] = monthly_counts_df["Month"].astype(str)
+    monthly_counts_df.to_csv(os.path.join(REPORT_FOLDER, "monthly_trade_counts.csv"), index=False)
 
     if len(df) >= window:
         rolling_df = pd.DataFrame({
