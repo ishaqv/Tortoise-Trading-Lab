@@ -5,7 +5,7 @@ import pandas as pd
 from intraday.scanner.m5.intraday_m5_breakout_scanner_bot import add_technical_indicators, \
     analyze_stock_for_setup
 from util.db_util import get_table_name, fetch_data
-from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT, ENABLE_CONSOLE_LOGGING
+from util.global_variables import INTRADAY_M5_CANDLE_SIZE, INTRADAY_M5_CANDLE_LIMIT
 from util.trade_logger import initialize_logger
 from util.trade_type import TradeType
 
@@ -76,7 +76,7 @@ def get_stock_df_from_db(symbol, breakout_window):
 if __name__ == "__main__":
     initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}", True)
 
-    stock = "AEROFLEX"  # NSE Top Gainer stock for backtest
+    stock = "OLAELEC"  # NSE Top Gainer stock for backtest
 
     # Use data from 0 days ago(today) for testing
     trading_day = datetime.today() - timedelta(days=0)
