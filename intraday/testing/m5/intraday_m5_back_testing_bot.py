@@ -427,8 +427,7 @@ def process_symbol(
 
                 if is_long:
                     trigger_price = (
-                            max(confirmation_candle["high"],
-                                breakout_candle["high"]) + entry_buffer_multiplier * tick_size
+                            confirmation_candle["high"] + entry_buffer_multiplier * tick_size
                     )
 
                 else:
