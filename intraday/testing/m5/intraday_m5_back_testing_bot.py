@@ -407,8 +407,6 @@ def process_symbol(
 
                 breakout_time = breakout_candle['trade_date']
 
-                atr = breakout_candle["atr"]
-
                 df_after_breakout = df_trading_day_full[
                     df_trading_day_full['trade_date'] > breakout_time
                     ]
@@ -429,7 +427,8 @@ def process_symbol(
 
                 if is_long:
                     trigger_price = (
-                            confirmation_candle["high"] + entry_buffer_multiplier * tick_size
+                            max(confirmation_candle["high"],
+                                breakout_candle["high"]) + entry_buffer_multiplier * tick_size
                     )
 
                 else:

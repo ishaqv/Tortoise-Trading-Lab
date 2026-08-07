@@ -14,10 +14,10 @@ import pandas as pd
 from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 
 # ── CONFIG ────────────────────────────────────────────────
-MIN_PCT_CHANGE = 3.0
+MIN_PCT_CHANGE = 2.5
 MAX_PCT_CHANGE = 8.0
 MAX_OPENING_GAP_PCT = 3.0
-MAX_PARTICIPATION_RATE = 0.6
+MAX_PARTICIPATION_RATE = 1.0
 
 # ── FILE ──────────────────────────────────────────────────
 
