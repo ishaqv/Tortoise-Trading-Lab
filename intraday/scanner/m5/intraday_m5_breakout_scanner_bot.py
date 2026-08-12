@@ -11,7 +11,7 @@ from intraday.scanner.m5.early_momentum_breakout_scanner import is_early_momentu
 from intraday.scanner.m5.volume_explosion_long_breakout_scanner import is_volume_explosion_long_breakout_detected
 from util.entry_type import EntryType
 from util.global_variables import *
-from util.kite_util import get_bid_ask
+from util.kite_util import get_best_bid_ask, get_market_depth
 from util.setup_type import IntradaySetupType
 from util.telegram_bot import send_telegram_alert
 from util.trade_logger import log
@@ -47,7 +47,8 @@ def calculate_opening_gap(df_trading_day, df_previous_day):
 def analyze_stock_for_setup(symbol,
                             df,
                             trading_day=date.today(),
-                            is_backtesting=False):
+                            is_backtesting=False,
+                            is_forward_testing=False):
     """
     Analyzes intraday stock data to detect potential breakout setups
     and sends a trade alert if a valid setup is found.
@@ -74,7 +75,10 @@ def analyze_stock_for_setup(symbol,
 
         df_previous_day = get_previous_day_data(df)
         opening_gap_pct = calculate_opening_gap(df_trading_day, df_previous_day)
-        participation_rate = get_participation_rate(breakout_candle)
+        breakout_atr = breakout_candle['atr']
+        risk_per_share = get_risk_per_share(breakout_atr)
+        tradable_qty = get_tradable_quantity(breakout_candle)
+        participation_rate = get_participation_rate(breakout_candle, tradable_qty)
 
         setup_type = None
         entry_type = None
@@ -96,8 +100,7 @@ def analyze_stock_for_setup(symbol,
                 is_breakout_detected = True
 
         if is_breakout_detected:
-            breakout_atr = breakout_candle['atr']
-            risk_per_share = get_risk_per_share(breakout_atr)
+
             if is_backtesting:
                 return {
                     'Symbol': symbol,
@@ -108,10 +111,13 @@ def analyze_stock_for_setup(symbol,
                     'Risk': risk_per_share
                 }
 
-            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
+            if is_forward_testing:
+                log("info", f"{setup_type.name} setup detected for {symbol}")
+                return None
 
-            if not is_spread_acceptable(spread_atr_ratio):
-                message = f"Breakout rejected for {symbol} — spread (spread_atr_ratio = {round(spread_atr_ratio * 100, 1)}) too wide"
+            spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
+            if not is_spread_acceptable(spread_atr_ratio, participation_rate):
+                message = f"{setup_type.name} breakout rejected for {symbol} — spread_atr ratio {round(spread_atr_ratio * 100, 1)}% is too wide for the participation rate {round(participation_rate * 100, 1)}%"
                 log("warning", message)
                 send_telegram_alert(message)
                 return None
@@ -123,8 +129,10 @@ def analyze_stock_for_setup(symbol,
                 f"📌 <b>Symbol : </b> {symbol}\n\n"
                 f"🧠 <b>Setup : </b> {setup_type.name}\n\n"
                 f"⚡ <b>Trade : </b> {TradeType.INTRADAY.name}\n\n\n"
-                f"⚠️ Risk : {risk_per_share} pips\n\n"
-                f"🎯 Target : {round(risk_per_share * INTRADAY_M5_TARGET_MULTIPLIER, 1)} pips\n"
+                f"⚠️ <b>Risk : </b> {risk_per_share} pips\n\n"
+                f"📊 <b>Participation Rate : </b> {round(participation_rate * 100, 1)}%\n\n"
+                f"📐 <b>Spread-ATR Ratio : </b> {round(spread_atr_ratio * 100, 1)}%\n\n"
+                f"💸 <b>Impact Cost/Risk : </b> {round(get_impact_cost(symbol, tradable_qty, entry_type.name, risk_per_share) * 100, 1)}%\n\n"
             )
 
             send_telegram_alert(message)
@@ -134,7 +142,7 @@ def analyze_stock_for_setup(symbol,
         log("error", f"Error in analyzing stock {symbol}: {e}", exc_info=True)
 
 
-def get_participation_rate(breakout_candle):
+def get_tradable_quantity(breakout_candle):
     # Use the expected entry price
     breakout_price = breakout_candle["high"]
 
@@ -176,6 +184,16 @@ def get_participation_rate(breakout_candle):
 
     if tradable_qty <= 0:
         return float("inf")
+    return tradable_qty
+
+
+def get_participation_rate(breakout_candle, tradable_qty):
+    # Use the expected entry price
+    breakout_price = breakout_candle["high"]
+
+    breakout_value = breakout_price * breakout_candle["volume"]
+    if breakout_value <= 0:
+        return float("inf")  # Always fail liquidity filter
 
     # Actual order value
     order_value = tradable_qty * breakout_price
@@ -243,7 +261,7 @@ def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
     spreads = []
 
     for _ in range(samples):
-        bid, ask = get_bid_ask(symbol)
+        bid, ask = get_best_bid_ask(symbol)
 
         if 0 < bid <= ask and ask > 0:
             spreads.append(ask - bid)
@@ -258,12 +276,213 @@ def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
     return round(median_spread / atr, 4)
 
 
-def is_spread_acceptable(spread_atr_ratio):
+def is_spread_acceptable(spread_atr_ratio, participation_rate):
     """
-    Returns True if the spread/ATR ratio is within acceptable limits.
+    Returns True if the spread/ATR ratio is acceptable
+    for the given participation rate.
+
+    Lower participation rate = better liquidity.
     """
 
     if spread_atr_ratio is None:
-        return False  # Reject if spread data unavailable
+        return False
 
-    return spread_atr_ratio <= NSE_MAX_SPREAD_ATR_RATIO
+    if participation_rate is None:
+        return False
+
+    if participation_rate <= 1.0:
+        max_spread_atr_ratio = NSE_MAX_SPREAD_ATR_RATIO
+
+    elif participation_rate <= 3.0:
+        max_spread_atr_ratio = 0.10
+
+    elif participation_rate <= 5.0:
+        max_spread_atr_ratio = 0.075
+
+    else:
+        # Normally rejected by the separate participation filter
+        max_spread_atr_ratio = 0.02
+
+    return spread_atr_ratio <= max_spread_atr_ratio
+
+
+def get_impact_cost(
+        symbol,
+        quantity,
+        direction,
+        risk_per_share,
+        samples=5,
+        delay=0.2
+):
+    """
+    Estimate execution impact cost in R for the actual order quantity
+    using Kite's 5-level market depth.
+
+    LONG  -> consumes ask/sell side
+    SHORT -> consumes bid/buy side
+
+    Impact R =
+        execution impact per share / risk per share
+
+    Returns:
+        Median estimated impact cost in R.
+        Returns None if impact cost cannot be calculated.
+
+    Any error is logged silently and does not interrupt execution.
+    """
+
+    try:
+        if quantity <= 0 or risk_per_share <= 0:
+            return None
+
+        direction = direction.upper().strip()
+
+        if direction not in ("LONG", "SHORT"):
+            return None
+
+        impacts_r = []
+
+        for _ in range(samples):
+
+            try:
+
+                depth = get_market_depth(symbol)
+
+                bids = depth.get("buy", [])
+                asks = depth.get("sell", [])
+
+                if not bids or not asks:
+                    sleep(delay)
+                    continue
+
+                best_bid = bids[0]["price"]
+                best_ask = asks[0]["price"]
+
+                if (
+                        best_bid <= 0
+                        or best_ask <= 0
+                        or best_bid > best_ask
+                ):
+                    sleep(delay)
+                    continue
+
+                mid_price = (best_bid + best_ask) / 2
+
+                # -------------------------------------------------
+                # LONG -> Consume ASK side
+                # -------------------------------------------------
+
+                if direction == "LONG":
+
+                    remaining_qty = quantity
+                    execution_value = 0.0
+
+                    asks_sorted = sorted(
+                        asks,
+                        key=lambda x: x["price"]
+                    )
+
+                    for level in asks_sorted:
+
+                        price = level["price"]
+                        available_qty = level["quantity"]
+
+                        if price <= 0 or available_qty <= 0:
+                            continue
+
+                        fill_qty = min(
+                            remaining_qty,
+                            available_qty
+                        )
+
+                        execution_value += fill_qty * price
+                        remaining_qty -= fill_qty
+
+                        if remaining_qty <= 0:
+                            break
+
+                    if remaining_qty > 0:
+                        continue
+
+                    execution_vwap = execution_value / quantity
+
+                    impact_per_share = (
+                            execution_vwap - mid_price
+                    )
+
+                # -------------------------------------------------
+                # SHORT -> Consume BID side
+                # -------------------------------------------------
+
+                else:
+
+                    remaining_qty = quantity
+                    execution_value = 0.0
+
+                    bids_sorted = sorted(
+                        bids,
+                        key=lambda x: x["price"],
+                        reverse=True
+                    )
+
+                    for level in bids_sorted:
+
+                        price = level["price"]
+                        available_qty = level["quantity"]
+
+                        if price <= 0 or available_qty <= 0:
+                            continue
+
+                        fill_qty = min(
+                            remaining_qty,
+                            available_qty
+                        )
+
+                        execution_value += fill_qty * price
+                        remaining_qty -= fill_qty
+
+                        if remaining_qty <= 0:
+                            break
+
+                    if remaining_qty > 0:
+                        continue
+
+                    execution_vwap = execution_value / quantity
+
+                    impact_per_share = (
+                            mid_price - execution_vwap
+                    )
+
+                # -------------------------------------------------
+                # Convert impact to R
+                # -------------------------------------------------
+
+                impact_r = (
+                        impact_per_share / risk_per_share
+                )
+
+                impacts_r.append(impact_r)
+
+            except Exception as e:
+                log(
+                    "debug",
+                    f"Impact cost unavailable for {symbol}: {e}"
+                )
+                continue
+
+            sleep(delay)
+
+        if not impacts_r:
+            return None
+
+        return round(
+            float(np.median(impacts_r)),
+            4
+        )
+
+    except Exception as e:
+        log(
+            "debug",
+            f"Impact cost calculation failed for {symbol}: {e}"
+        )
+        return None

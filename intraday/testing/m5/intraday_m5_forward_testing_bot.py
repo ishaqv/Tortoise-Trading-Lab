@@ -76,7 +76,7 @@ def get_stock_df_from_db(symbol, breakout_window):
 if __name__ == "__main__":
     initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}", True)
 
-    stock = "INDOMIM"  # NSE Top Gainer stock for backtest
+    stock = "ARE&M"  # NSE Top Gainer stock for backtest
 
     # Use data from 0 days ago(today) for testing
     trading_day = datetime.today() - timedelta(days=0)
@@ -86,4 +86,4 @@ if __name__ == "__main__":
 
     if stock_df is not None and not stock_df.empty:
         add_technical_indicators(stock_df)
-        analyze_stock_for_setup(stock, stock_df, trading_day.date())
+        analyze_stock_for_setup(stock, stock_df, trading_day.date(), is_forward_testing=True)

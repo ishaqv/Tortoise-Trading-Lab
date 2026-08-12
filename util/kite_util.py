@@ -130,7 +130,7 @@ def fetch_historical_data_from_kite(symbol, instrument_token, from_date, to_date
     return None
 
 
-def get_bid_ask(symbol) -> tuple[float, float]:
+def get_market_depth(symbol):
     """
     Fetch best bid and ask from Kite quote API
     """
@@ -138,6 +138,20 @@ def get_bid_ask(symbol) -> tuple[float, float]:
         instrument = f"NSE:{symbol}".strip()
         quote = get_kite().quote(instrument)
         depth = quote[instrument]["depth"]
+
+        return depth
+    except Exception as e:
+        log("error", f"❌ Unexpected error in fetching market depth for {symbol}: {e}", exc_info=True)
+        return None
+
+
+def get_best_bid_ask(symbol) -> tuple[float, float]:
+    """
+    Fetch best bid and ask from Kite quote API
+    """
+    try:
+
+        depth = get_market_depth(symbol)
 
         bid = depth["buy"][0]["price"]
         ask = depth["sell"][0]["price"]
