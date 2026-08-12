@@ -117,7 +117,7 @@ def analyze_stock_for_setup(symbol,
 
             spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
             if not is_spread_acceptable(spread_atr_ratio, participation_rate):
-                message = f"{setup_type.name} breakout rejected for {symbol} — spread_atr ratio {round(spread_atr_ratio * 100, 1)}% is too wide for the participation rate {round(participation_rate * 100, 1)}%"
+                message = f"{setup_type.name} breakout rejected for {symbol} — spread_atr ratio {round(spread_atr_ratio * 100, 1)}% is too wide for the participation rate {participation_rate}%"
                 log("warning", message)
                 send_telegram_alert(message)
                 return None
@@ -130,7 +130,7 @@ def analyze_stock_for_setup(symbol,
                 f"🧠 <b>Setup : </b> {setup_type.name}\n\n"
                 f"⚡ <b>Trade : </b> {TradeType.INTRADAY.name}\n\n\n"
                 f"⚠️ <b>Risk : </b> {risk_per_share} pips\n\n"
-                f"📊 <b>Participation Rate : </b> {round(participation_rate * 100, 1)}%\n\n"
+                f"📊 <b>Participation Rate : </b> {participation_rate}%\n\n"
                 f"📐 <b>Spread-ATR Ratio : </b> {round(spread_atr_ratio * 100, 1)}%\n\n"
                 f"💸 <b>Impact Cost/Risk : </b> {round(get_impact_cost(symbol, tradable_qty, entry_type.name, risk_per_share) * 100, 1)}%\n\n"
             )
