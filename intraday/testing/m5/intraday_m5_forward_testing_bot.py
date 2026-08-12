@@ -79,7 +79,7 @@ if __name__ == "__main__":
     stock = "ARE&M"  # NSE Top Gainer stock for backtest
 
     # Use data from 0 days ago(today) for testing
-    trading_day = datetime.today() - timedelta(days=0)
+    trading_day = datetime.today() - timedelta(days=1)
     breakout_time = datetime.combine(trading_day, time(9, 15))  # 9:45 AM candle is our breakout candidate
 
     stock_df = get_stock_df_from_db(stock, breakout_time)

@@ -9,7 +9,7 @@ MAX_PARTICIPATION_RATE = 4.0
 MIN_VOLUME_MULTIPLIER = 15
 
 
-def is_volume_explosion_long_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
+def is_volume_explosion_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
     if not is_liquid_breakout(participation_rate, MAX_PARTICIPATION_RATE):
         log("info", "EVB - Low participation confidence")
         return False
