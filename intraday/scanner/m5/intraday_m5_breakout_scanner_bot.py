@@ -18,6 +18,10 @@ from util.trade_logger import log
 from util.trade_type import TradeType
 
 
+# -----------------------------------------------------------------------------
+# DATA / INDICATORS
+# -----------------------------------------------------------------------------
+
 def get_previous_day_data(df):
     trade_dates = df["trade_date"].dt.date
     unique_dates = trade_dates.unique()
@@ -83,6 +87,10 @@ def get_participation_rate(breakout_candle, tradable_qty):
     return round((order_value / breakout_value) * 100, 1)
 
 
+# -----------------------------------------------------------------------------
+# LIQUIDITY / EXECUTION
+# -----------------------------------------------------------------------------
+
 def get_spread_atr_ratio(symbol, atr, samples=5, delay=0.2):
     if atr <= 0:
         return None
@@ -117,7 +125,7 @@ def is_spread_acceptable(spread_atr_ratio, participation_rate):
     return spread_atr_ratio <= max_spread_atr_ratio
 
 
-def _walk_order_book(levels, quantity, mid_price, direction):
+def walk_order_book(levels, quantity, mid_price, direction):
     # fills the order level by level and returns how far the fill price
     # drifted away from the mid price (the "impact" of the order)
     is_long = direction == EntryType.LONG
@@ -176,7 +184,7 @@ def get_impact_cost(symbol, quantity, direction, risk_per_share, samples=5, dela
                     continue
 
                 mid_price = (best_bid + best_ask) / 2
-                impact_per_share = _walk_order_book(
+                impact_per_share = walk_order_book(
                     levels=asks if direction == EntryType.LONG else bids,
                     quantity=quantity,
                     mid_price=mid_price,
@@ -201,7 +209,11 @@ def get_impact_cost(symbol, quantity, direction, risk_per_share, samples=5, dela
         return None
 
 
-def _detect_setup(breakout_candle, breakout_time, participation_rate, opening_gap_pct):
+# -----------------------------------------------------------------------------
+# SETUP DETECTION / ALERTS
+# -----------------------------------------------------------------------------
+
+def detect_setup(breakout_candle, breakout_time, participation_rate, opening_gap_pct):
     if breakout_time != EVB_SCAN_CANDLE_TIME:
         return None, None
 
@@ -214,7 +226,7 @@ def _detect_setup(breakout_candle, breakout_time, participation_rate, opening_ga
     return None, None
 
 
-def _evaluate_and_alert(symbol, setup_type, entry_type, breakout_atr, risk_per_share, tradable_qty, participation_rate):
+def evaluate_and_alert(symbol, setup_type, entry_type, breakout_atr, risk_per_share, tradable_qty, participation_rate):
     spread_atr_ratio = get_spread_atr_ratio(symbol, breakout_atr)
 
     if not is_spread_acceptable(spread_atr_ratio, participation_rate):
@@ -247,6 +259,10 @@ def _evaluate_and_alert(symbol, setup_type, entry_type, breakout_atr, risk_per_s
     log("info", message)
 
 
+# -----------------------------------------------------------------------------
+# STOCK ANALYSIS / SCREENER
+# -----------------------------------------------------------------------------
+
 def analyze_stock_for_setup(symbol, df, trading_day=None, is_backtesting=False, is_forward_testing=False):
     if trading_day is None:
         trading_day = date.today()
@@ -271,7 +287,7 @@ def analyze_stock_for_setup(symbol, df, trading_day=None, is_backtesting=False, 
         tradable_qty = get_tradable_quantity(breakout_candle)
         participation_rate = get_participation_rate(breakout_candle, tradable_qty)
 
-        setup_type, entry_type = _detect_setup(
+        setup_type, entry_type = detect_setup(
             breakout_candle, breakout_time, participation_rate, opening_gap_pct
         )
 
@@ -292,7 +308,7 @@ def analyze_stock_for_setup(symbol, df, trading_day=None, is_backtesting=False, 
             log("info", f"{setup_type.name} setup detected for {symbol}")
             return None
 
-        _evaluate_and_alert(
+        evaluate_and_alert(
             symbol=symbol,
             setup_type=setup_type,
             entry_type=entry_type,
@@ -318,7 +334,11 @@ def process_stock(symbol, stock_data_df):
 
 
 def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:
-    log("info", f"Starting screener with {MAX_WORKERS} workers for {len(symbol_df_map)} symbols.")
+    log(
+    "info",
+    f"Starting screener with {MAX_WORKERS} workers "
+    f"for {len(symbol_df_map)} symbols.",
+)
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {
