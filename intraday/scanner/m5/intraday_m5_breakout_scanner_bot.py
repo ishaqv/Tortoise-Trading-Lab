@@ -55,7 +55,7 @@ def get_risk_per_share(breakout_atr):
 
 
 def get_tradable_quantity(breakout_candle):
-    breakout_price = breakout_candle["high"]
+    breakout_price = breakout_candle["close"]
     breakout_value = breakout_price * breakout_candle["volume"]
 
     if breakout_value <= 0:
@@ -77,7 +77,7 @@ def get_tradable_quantity(breakout_candle):
 
 
 def get_participation_rate(breakout_candle, tradable_qty):
-    breakout_price = breakout_candle["high"]
+    breakout_price = breakout_candle["close"]
     breakout_value = breakout_price * breakout_candle["volume"]
 
     if breakout_value <= 0:
@@ -241,18 +241,15 @@ def evaluate_and_alert(symbol, setup_type, entry_type, breakout_atr, risk_per_sh
         return
 
     entry_type_icon = "🟢" if entry_type == EntryType.LONG else "🔴"
-    impact_cost = get_impact_cost(symbol, tradable_qty, entry_type, risk_per_share)
-    impact_cost_display = round(impact_cost * 100, 1) if impact_cost is not None else "N/A"
 
     message = (
         f"{entry_type_icon} <b>{entry_type.name} SETUP DETECTED</b>\n\n\n"
         f"📌 <b>Symbol : </b> {symbol}\n\n"
         f"🧠 <b>Setup : </b> {setup_type.name}\n\n"
-        f"⚡ <b>Trade : </b> {TradeType.INTRADAY.name}\n\n\n"
+        f"⚡ <b>Trade : </b> {TradeType.INTRADAY.name}\n\n"
         f"⚠️ <b>Risk : </b> {risk_per_share} pips\n\n"
         f"📊 <b>Participation Rate : </b> {participation_rate}%\n\n"
         f"📐 <b>Spread-ATR Ratio : </b> {round(spread_atr_ratio * 100, 1)}%\n\n"
-        f"💸 <b>Impact Cost/Risk : </b> {impact_cost_display}%\n\n"
     )
 
     send_telegram_alert(message)
