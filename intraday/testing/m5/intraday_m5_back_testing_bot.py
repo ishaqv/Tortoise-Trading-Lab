@@ -64,7 +64,6 @@ BREAKOUT_WINDOWS = [
     }
 ]
 
-
 # ==========================================================
 # NSE Equity Intraday Charges
 # ==========================================================
@@ -483,7 +482,6 @@ def process_symbol(
                 elif result["Setup"] == IntradaySetupType.EMB.name:
                     target_r = EMB_TARGET_R
 
-
                 risk = result["Risk"]
 
                 if risk <= 0:
@@ -705,7 +703,6 @@ def process_symbol(
 
                             pnl_r = -1
 
-
                             exit_slippage_per_share = (
                                     exit_price * stop_slippage_bp / 10000
                             )
@@ -772,7 +769,6 @@ def process_symbol(
                                 exit_price = stop_loss
 
                                 pnl_r = -1
-
 
                                 exit_slippage_per_share = (
                                         exit_price * stop_slippage_bp / 10000
@@ -875,7 +871,6 @@ def process_symbol(
                             elif trailing_stop_hit:
 
                                 exit_price = trailing_stop
-
 
                                 exit_slippage_per_share = (
                                         exit_price * stop_slippage_bp / 10000

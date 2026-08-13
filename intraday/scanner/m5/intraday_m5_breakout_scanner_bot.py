@@ -332,10 +332,10 @@ def process_stock(symbol, stock_data_df):
 
 def run_intraday_screener(symbol_df_map: dict[str, pd.DataFrame]) -> None:
     log(
-    "info",
-    f"Starting screener with {MAX_WORKERS} workers "
-    f"for {len(symbol_df_map)} symbols.",
-)
+        "info",
+        f"Starting screener with {MAX_WORKERS} workers "
+        f"for {len(symbol_df_map)} symbols.",
+    )
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         futures = {

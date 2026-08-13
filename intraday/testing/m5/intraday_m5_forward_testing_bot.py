@@ -76,7 +76,7 @@ def get_stock_df_from_db(symbol, breakout_window):
 if __name__ == "__main__":
     initialize_logger(TradeType.INTRADAY, f"m{INTRADAY_M5_CANDLE_SIZE}", True)
 
-    stock = "AEROFLEX"  # NSE Top Gainer stock for backtest
+    stock = "SURAKSHA"  # NSE Top Gainer stock for backtest
 
     # Use data from 0 days ago(today) for testing
     trading_day = datetime.today() - timedelta(days=0)

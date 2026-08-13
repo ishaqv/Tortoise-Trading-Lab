@@ -84,7 +84,6 @@ def scan_file(filename):
     # PRINT RESULTS
     # =========================
     if not filtered.empty:
-
         print(
             filtered[
                 [
