@@ -161,7 +161,8 @@ opening volatility settles.
 
 4. Optional:
 
-* Download the CSV file and perform filtering locally by runnning [top_gainers_scanner.py](top_gainers_scanner.py).
+* Download the CSV file and perform filtering locally by
+  runnning [nse_top_gainers_scanner_manual_run.py](nse_top_gainers_scanner_manual_run.py)
 
 > Alternatively, select an index (**NIFTY** or **NIFTY NEXT 50**) and apply the filters manually.
 
@@ -174,7 +175,7 @@ opening volatility settles.
 
 Identify a small set of liquid stocks showing early strength and attempt to capitalize on initial momentum moves.
 
-
+> This scanner is completely automated now. Read more here [README.md](intraday/scanner/m5/top_gainers/README.md)
 ---
 
 ## 🔹 Setup 4 — Bull Trap Reversal (BTR)
