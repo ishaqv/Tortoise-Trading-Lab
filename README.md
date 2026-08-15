@@ -349,6 +349,18 @@ Solution: Start with a wider initial stop to withstand entry-candle volatility, 
 * Requires active supervision and disciplined trade management
 * Order Type: Use a Limit SELL order
 
+## When Should You Switch to a Partial Exit Model?
+
+The answer is relatively simple: **look at what happens immediately after entry.**
+
+When the momentum is strong, there are two logical choices:
+
+1. **Extend the target** and allow the entire position to capture more of the move.
+2. **Switch to a partial-exit model** — book a portion of the position at the original target and let the remaining
+   position run.
+
+Read more here [Exit_Strategy.md](trading-mind-journal/Exit_Strategy.md)
+
 ### ⚠️ Important
 
 ```
