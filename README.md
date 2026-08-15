@@ -352,6 +352,14 @@ Solution: Start with a wider initial stop to withstand entry-candle volatility, 
 ## When Should You Switch to a Partial Exit Model?
 
 The answer is relatively simple: **look at what happens immediately after entry.**
+Measure participation on the lower timeframe after entry.
+
+Strong Participation
+
+* Volume ≥ 2 × 20-period average for the next 2–3 candles.
+* Price maintains bullish structure (higher highs/higher lows).
+
+![Strong_Momentum.png](Strong_Momentum.png)
 
 When the momentum is strong, there are two logical choices:
 
