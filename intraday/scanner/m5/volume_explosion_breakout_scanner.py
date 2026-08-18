@@ -7,7 +7,7 @@ MAX_PRICE_CHANGE = 9
 MAX_OPENING_GAP_PCT = 5.0
 MAX_PARTICIPATION_RATE = 4.0
 MIN_VOLUME_MULTIPLIER = 15
-
+IDEAL_PARTICIPATION_RATE = 0.50
 
 def is_volume_explosion_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
     if not is_liquid_breakout(participation_rate, MAX_PARTICIPATION_RATE):
@@ -18,7 +18,12 @@ def is_volume_explosion_breakout_detected(breakout_candle, participation_rate, o
         log("info", "EVB - Low gap confidence")
         return False
 
-    if not is_valid_price_change(breakout_candle, MIN_PRICE_CHANGE, MAX_PRICE_CHANGE):
+    if participation_rate < IDEAL_PARTICIPATION_RATE:
+        min_price_change = 2.50
+    else:
+        min_price_change = MIN_PRICE_CHANGE
+
+    if not is_valid_price_change(breakout_candle, min_price_change, MAX_PRICE_CHANGE):
         log("info", "EVB - Low price change confidence")
         return False
 

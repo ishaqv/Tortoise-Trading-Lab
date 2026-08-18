@@ -33,7 +33,7 @@ stop_slippage_bp = 4
 exit_model = ExitModel.STATIC
 EVB_TARGET_R = 2.1 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EVB travels 2 ATR from entry on average
 EMB_TARGET_R = 1.9 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
-
+DEFAULT_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER
 # --------------------------------------------------------------
 # Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial
 # is booked). Deliberately NOT ATR-based: the stop trails behind the
@@ -481,6 +481,8 @@ def process_symbol(
                     target_r = EVB_TARGET_R
                 elif result["Setup"] == IntradaySetupType.EMB.name:
                     target_r = EMB_TARGET_R
+                else:
+                    target_r = DEFAULT_TARGET_R
 
                 risk = result["Risk"]
 
