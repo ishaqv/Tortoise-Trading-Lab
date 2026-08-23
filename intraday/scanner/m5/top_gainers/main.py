@@ -28,15 +28,18 @@ from html import escape
 from zoneinfo import ZoneInfo
 
 import functions_framework
+import numpy as np
 import pandas as pd
 import requests
 from flask import Request, Response
 
 # ── CONFIG ──────────────
 MIN_PCT_CHANGE = 2.5
+MIN_PCT_CHANGE_LOW_PARTICIPATION = 1.5
 MAX_PCT_CHANGE = 8.0
 MAX_OPENING_GAP_PCT = 3.0
 MAX_PARTICIPATION_RATE = 0.75
+PARTICIPATION_THRESHOLD = 0.35
 TRADING_CAPITAL = int(os.environ.get("TRADING_CAPITAL", "500000"))
 INTRADAY_LEVERAGE_MULTIPLIER = float(os.environ.get("INTRADAY_LEVERAGE_MULTIPLIER", "4.75"))
 UPLOAD_FUNCTION_URL = os.environ.get("UPLOAD_FUNCTION_URL", "")
@@ -113,7 +116,11 @@ def scan_dataframe(df, label):
     df["Index"] = label
 
     filtered = df[
-        (df["price_change_%"] >= MIN_PCT_CHANGE) &
+        (df["price_change_%"] >= np.where(
+            df["participation_rate"] < PARTICIPATION_THRESHOLD,
+            MIN_PCT_CHANGE_LOW_PARTICIPATION,
+            MIN_PCT_CHANGE
+        )) &
         (df["price_change_%"] <= MAX_PCT_CHANGE) &
         (df["gap_pct"] <= MAX_OPENING_GAP_PCT) &
         (df["participation_rate"] < MAX_PARTICIPATION_RATE)
