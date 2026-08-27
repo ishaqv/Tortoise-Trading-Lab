@@ -17,10 +17,28 @@ client = secretmanager.SecretManagerServiceClient()
 
 
 def store_token(token):
+    secret_name = f"projects/{PROJECT_ID}/secrets/KITE_ACCESS_TOKEN"
+
+    # Destroy all previous versions(ENABLED/DISABLED) to avoid unnecessary Secret Manager
+    # costs from retaining expired Kite access tokens. We only need the
+    # latest token for the current trading day.
+    versions = client.list_secret_versions(
+        request={
+            "parent": secret_name,
+            "filter": "state:(ENABLED OR DISABLED)",
+        }
+    )
+
+    for version in versions:
+        client.destroy_secret_version(
+            request={"name": version.name}
+        )
+
+    # Store today's token as the only active version
     client.add_secret_version(
         request={
-            "parent": f"projects/{PROJECT_ID}/secrets/KITE_ACCESS_TOKEN",
-            "payload": {"data": token.encode()}
+            "parent": secret_name,
+            "payload": {"data": token.encode()},
         }
     )
 
