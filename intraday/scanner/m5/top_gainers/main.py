@@ -20,6 +20,7 @@ Environment variables required (set at deploy time):
   TRADING_CAPITAL               - e.g. "100000"
   INTRADAY_LEVERAGE_MULTIPLIER  - e.g. "4.75"
 """
+import functools
 import logging
 import os
 import re
@@ -48,34 +49,86 @@ TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 BUYING_POWER = TRADING_CAPITAL * INTRADAY_LEVERAGE_MULTIPLIER
 
 
-def send_telegram_alert(message):
-    """Send an HTML-formatted message to Telegram."""
+def _send_telegram_message(message):
+    """Low-level Telegram sender. Raises if Telegram/network fails."""
     formatted_message = (
         "-------------------------------------\n"
         f"{message}"
     )
 
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": formatted_message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+        "protect_content": True,
+    }
+
+    response = requests.post(url, data=payload, timeout=15)
+    response.raise_for_status()
+
+    response_data = response.json()
+    if not response_data.get("ok", False):
+        raise RuntimeError(
+            f"Telegram API returned ok=false: {response.text}"
+        )
+
+
+def send_telegram_alert(message):
+    """Send a normal Telegram alert."""
+    _send_telegram_message(message)
+
+
+def _send_error_telegram_alert(function_name, exc):
+    """Best-effort minimal error notification."""
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        timestamp = datetime.now(
+            ZoneInfo("Asia/Kolkata")
+        ).strftime("%d-%b-%Y %H:%M:%S IST")
 
-        payload = {
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": formatted_message,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-            "protect_content": True
-        }
+        message = (
+            "🚨 <b>Cloud Function Error</b>\n"
+            f"<b>Function:</b> {escape(function_name)}\n"
+            f"<b>Error:</b> {escape(type(exc).__name__)}: "
+            f"{escape(str(exc))}\n"
+            f"<b>Time:</b> {escape(timestamp)}"
+        )
 
-        response = requests.post(url, data=payload, timeout=15)
+        # Never call send_telegram_alert() here. If Telegram itself
+        # failed, error reporting must not recursively fail.
+        _send_telegram_message(message)
 
-        if response.status_code != 200 or not response.json().get("ok", False):
-            logging.error(
-                f"Received invalid Telegram response: "
-                f"{response.status_code} - {response.text}"
+    except Exception:
+        # Never hide the original exception because Telegram failed.
+        logging.exception("Failed to send error notification to Telegram")
+
+
+def global_exception_handler(function):
+    """Catch unexpected exceptions from a Cloud Function in one place."""
+
+    @functools.wraps(function)
+    def wrapper(request: Request):
+        try:
+            return function(request)
+
+        except Exception as exc:
+            # Full traceback is available in Cloud Logging.
+            # Telegram gets only a short notification.
+            logging.exception(
+                "Unhandled exception in Cloud Function '%s'",
+                function.__name__,
             )
 
-    except Exception as e:
-        logging.exception(f"⚠️ Error sending Telegram message: {e}")
+            _send_error_telegram_alert(function.__name__, exc)
+
+            return Response(
+                "❌ Internal server error. The error has been reported.",
+                status=500,
+                mimetype="text/plain",
+            )
+
+    return wrapper
 
 
 def get_label(filename):
@@ -131,71 +184,51 @@ def scan_dataframe(df, label):
 def process_uploaded_files(files):
     """Scan uploaded CSVs and build Telegram-ready HTML sections."""
     sections = []
-    total_candidates = 0
-    successful_files = 0
 
     for f in files:
         filename = f.filename or "Unnamed file"
 
-        # ---------------------------------------------------------
-        # Read CSV
-        # ---------------------------------------------------------
         try:
-            df = pd.read_csv(f.stream)  # type: ignore[arg-type]
-            successful_files += 1
+            df = pd.read_csv(f.stream)
 
-        except Exception as e:
-            sections.append(
-                f"❌ <b>{escape(filename)}</b>\n"
-                f"Could not read this CSV.\n"
-                f"<i>Reason: {escape(str(e))}</i>"
-            )
-            continue
-
-        # ---------------------------------------------------------
-        # Scan dataframe
-        # ---------------------------------------------------------
-        try:
             label = get_label(filename)
             result = scan_dataframe(df, label)
 
-        except Exception as e:
+        except Exception as exc:
+            # Keep processing the remaining files.
+            # Full traceback is logged; Telegram is not spammed for
+            # individual bad files.
+            logging.exception(
+                "Failed to process uploaded file '%s'",
+                filename,
+            )
+
             sections.append(
                 f"❌ <b>{escape(filename)}</b>\n"
-                f"Scan failed.\n"
-                f"<i>Reason: {escape(str(e))}</i>"
+                f"Could not process this CSV.\n"
+                f"<i>Reason: {escape(str(exc))}</i>"
             )
             continue
 
-        # No matching stocks
         if result.empty:
             continue
 
-        total_candidates += len(result)
-
-        # ---------------------------------------------------------
-        # Pick top 2
-        #
+        # Pick top 2:
         # 1. Lowest participation rate
         # 2. Highest price change as tie-breaker
-        # ---------------------------------------------------------
         top2 = (
             result
             .sort_values(
                 by=["PARTICIPATION_RATE", "PRICE_CHANGE_PCT"],
-                ascending=[True, False]
+                ascending=[True, False],
             )
             .head(2)
         )
 
-        # ---------------------------------------------------------
-        # Build table rows
-        # ---------------------------------------------------------
         rows = []
 
         for rank, (_, row) in enumerate(top2.iterrows(), start=1):
             symbol = escape(str(row["SYMBOL"]))
-
             price_change = float(row["PRICE_CHANGE_PCT"])
             gap = float(row["GAP_PCT"])
             participation = float(row["PARTICIPATION_RATE"])
@@ -207,15 +240,12 @@ def process_uploaded_files(files):
                 f"   Participation Rate: {participation:.2f}%"
             )
 
-        section = (
-                f"📊 <b>INDEX - {escape(label)}</b>\n\n"
-                + "\n\n".join(rows)
+        sections.append(
+            f"📊 <b>INDEX - {escape(label)}</b>\n\n"
+            + "\n\n".join(rows)
         )
 
-        sections.append(section)
-
-        return sections
-    return None
+    return sections
 
 
 # ── HTML for the upload page ────────────────────────────────────────────
@@ -493,6 +523,7 @@ UPLOAD_PAGE_HTML = """
 # ── CLOUD FUNCTION 1: notify_gainers ───────────────────────────────────
 
 @functions_framework.http
+@global_exception_handler
 def notify_gainers(request: Request):
     """Triggered by Cloud Scheduler each trading day. Sends a Telegram
     message with the  link to the upload top gainers CSVs."""
@@ -508,6 +539,7 @@ def notify_gainers(request: Request):
 # ── CLOUD FUNCTION 2: scan_upload ──────────────────────────────────────
 
 @functions_framework.http
+@global_exception_handler
 def scan_upload(request: Request):
     """GET  -> serves the upload form. Same link works every day.
     POST -> processes uploaded CSVs and sends results to Telegram."""
