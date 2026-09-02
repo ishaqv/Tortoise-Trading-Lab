@@ -93,39 +93,39 @@ def scan_dataframe(df, label):
     original script, operating on an in-memory DataFrame."""
     df = df.copy()
 
-    required_columns = ["Open", "Prev. Close", "LTP", "Volume", "Symbol"]
+    required_columns = ["OPEN", "PREV. CLOSE", "LTP", "VOLUME", "SYMBOL"]
     missing = [c for c in required_columns if c not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
 
-    for col in ["Open", "Prev. Close", "LTP", "Volume"]:
+    for col in ["OPEN", "PREV. CLOSE", "LTP", "VOLUME"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
     valid = (
-            df["Open"].gt(0) &
-            df["Prev. Close"].gt(0) &
+            df["OPEN"].gt(0) &
+            df["PREV. CLOSE"].gt(0) &
             df["LTP"].gt(0) &
-            df["Volume"].gt(0)
+            df["VOLUME"].gt(0)
     )
     df = df.loc[valid].copy()
 
-    df["gap_pct"] = (((df["Open"] - df["Prev. Close"]) / df["Prev. Close"]) * 100).abs().round(1)
-    df["price_change_%"] = (((df["LTP"] - df["Open"]) / df["Open"]) * 100).round(1)
-    denominator = df["LTP"] * df["Volume"]
-    df["participation_rate"] = (BUYING_POWER / denominator.where(denominator > 0) * 100).round(2)
-    df["Index"] = label
+    df["GAP_PCT"] = (((df["OPEN"] - df["PREV. CLOSE"]) / df["PREV. CLOSE"]) * 100).abs().round(1)
+    df["PRICE_CHANGE_PCT"] = (((df["LTP"] - df["OPEN"]) / df["OPEN"]) * 100).round(1)
+    denominator = df["LTP"] * df["VOLUME"]
+    df["PARTICIPATION_RATE"] = (BUYING_POWER / denominator.where(denominator > 0) * 100).round(2)
+    df["INDEX"] = label
 
     filtered = df[
-        (df["price_change_%"] >= np.where(
-            df["participation_rate"] < PARTICIPATION_THRESHOLD,
+        (df["PRICE_CHANGE_PCT"] >= np.where(
+            df["PARTICIPATION_RATE"] < PARTICIPATION_THRESHOLD,
             MIN_PCT_CHANGE_LOW_PARTICIPATION,
             MIN_PCT_CHANGE
         )) &
-        (df["price_change_%"] <= MAX_PCT_CHANGE) &
-        (df["gap_pct"] <= MAX_OPENING_GAP_PCT) &
-        (df["participation_rate"] < MAX_PARTICIPATION_RATE)
+        (df["PRICE_CHANGE_PCT"] <= MAX_PCT_CHANGE) &
+        (df["GAP_PCT"] <= MAX_OPENING_GAP_PCT) &
+        (df["PARTICIPATION_RATE"] < MAX_PARTICIPATION_RATE)
         ]
-    return filtered[["Index", "Symbol", "gap_pct", "price_change_%", "participation_rate"]]
+    return filtered[["INDEX", "SYMBOL", "GAP_PCT", "PRICE_CHANGE_PCT", "PARTICIPATION_RATE"]]
 
 
 def process_uploaded_files(files):
@@ -182,7 +182,7 @@ def process_uploaded_files(files):
         top2 = (
             result
             .sort_values(
-                by=["participation_rate", "price_change_%"],
+                by=["PARTICIPATION_RATE", "PRICE_CHANGE_PCT"],
                 ascending=[True, False]
             )
             .head(2)
@@ -194,11 +194,11 @@ def process_uploaded_files(files):
         rows = []
 
         for rank, (_, row) in enumerate(top2.iterrows(), start=1):
-            symbol = escape(str(row["Symbol"]))
+            symbol = escape(str(row["SYMBOL"]))
 
-            price_change = float(row["price_change_%"])
-            gap = float(row["gap_pct"])
-            participation = float(row["participation_rate"])
+            price_change = float(row["PRICE_CHANGE_PCT"])
+            gap = float(row["GAP_PCT"])
+            participation = float(row["PARTICIPATION_RATE"])
 
             rows.append(
                 f"<b>{rank}. {symbol}</b>\n"
@@ -208,7 +208,7 @@ def process_uploaded_files(files):
             )
 
         section = (
-                f"📊 <b>Index - {escape(label)}</b>\n\n"
+                f"📊 <b>INDEX - {escape(label)}</b>\n\n"
                 + "\n\n".join(rows)
         )
 
@@ -534,7 +534,7 @@ def scan_upload(request: Request):
         else:
             send_telegram_alert(
                 f"<b>NSE Top Gainers Watchlist for {escape(date_str)}</b>\n\n"
-                "No watchlist found."
+                "No qualifying symbols were found."
             )
 
         return Response("✅Success", status=200)

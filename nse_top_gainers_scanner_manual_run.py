@@ -62,47 +62,51 @@ def scan_file(filename):
     # =========================
 
     # Gap-up from previous close
-    df["gap_pct"] = (((df["Open"] - df["Prev. Close"]) / df["Prev. Close"]) * 100).abs().round(1)
+    df["GAP_PCT"] = (((df["OPEN"] - df["PREV. CLOSE"]) / df["PREV. CLOSE"]) * 100).abs().round(1)
 
     # % price move from open
-    df["price_change_%"] = (((df["LTP"] - df["Open"]) / df["Open"]) * 100).round(1)
+    df["PRICE_CHANGE_PCT"] = (((df["LTP"] - df["OPEN"]) / df["OPEN"]) * 100).round(1)
 
     # Liquidity condition
-    df["participation_rate"] = (buying_power / (df["LTP"] * df["Volume"]) * 100).round(2)
+    df["PARTICIPATION_RATE"] = (buying_power / (df["LTP"] * df["VOLUME"]) * 100).round(2)
 
     # Tag every row with the index it came from (short label, e.g. NIFTY, allSec)
-    df["Index"] = get_label(filename)
+    index = get_label(filename)
+    df["INDEX"] = index
 
     # =========================
     # FILTER CONDITIONS
     # =========================
     filtered = df[
-        (df["price_change_%"] >= np.where(
-            df["participation_rate"] < PARTICIPATION_THRESHOLD,
+        (df["PRICE_CHANGE_PCT"] >= np.where(
+            df["PARTICIPATION_RATE"] < PARTICIPATION_THRESHOLD,
             MIN_PCT_CHANGE_LOW_PARTICIPATION,
             MIN_PCT_CHANGE
         )) &
-        (df["price_change_%"] <= MAX_PCT_CHANGE) &
-        (df["gap_pct"] <= MAX_OPENING_GAP_PCT) &
-        (df["participation_rate"] < MAX_PARTICIPATION_RATE)
+        (df["PRICE_CHANGE_PCT"] <= MAX_PCT_CHANGE) &
+        (df["GAP_PCT"] <= MAX_OPENING_GAP_PCT) &
+        (df["PARTICIPATION_RATE"] < MAX_PARTICIPATION_RATE)
         ]
 
-    # =========================
-    # PRINT RESULTS
-    # =========================
-    if not filtered.empty:
+    if filtered.empty:
+        print(f"No qualifying symbols were found for the index {index}")
+
+    else:
+        # =========================
+        # PRINT RESULTS
+        # =========================
         print(
             filtered[
                 [
-                    "Index",
-                    "Symbol",
-                    "gap_pct",
-                    "price_change_%",
-                    "participation_rate"
+                    "INDEX",
+                    "SYMBOL",
+                    "GAP_PCT",
+                    "PRICE_CHANGE_PCT",
+                    "PARTICIPATION_RATE"
                 ]
             ]
             .sort_values(
-                by=["participation_rate", "price_change_%"],
+                by=["PARTICIPATION_RATE", "PRICE_CHANGE_PCT"],
                 ascending=[True, False],
             )
             .to_string(index=False)
