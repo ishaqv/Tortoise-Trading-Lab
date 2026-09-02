@@ -88,7 +88,7 @@ def _send_error_telegram_alert(function_name, exc):
         ).strftime("%d-%b-%Y %H:%M:%S IST")
 
         message = (
-            "🚨 <b>Cloud Function Error</b>\n"
+            "🚨 <b>NSE Top Gainers Processing Error</b>\n"
             f"<b>Function:</b> {escape(function_name)}\n"
             f"<b>Error:</b> {escape(type(exc).__name__)}: "
             f"{escape(str(exc))}\n"
