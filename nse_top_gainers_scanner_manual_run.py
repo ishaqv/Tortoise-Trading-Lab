@@ -18,9 +18,10 @@ from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
 MIN_PCT_CHANGE = 2.5
 MIN_PCT_CHANGE_LOW_PARTICIPATION = 1.5
 MAX_PCT_CHANGE = 8.0
-MAX_OPENING_GAP_PCT = 3.0
+MAX_OPENING_GAP_PCT = 3.5
 MAX_PARTICIPATION_RATE = 0.75
 PARTICIPATION_THRESHOLD = 0.35
+MIN_LTP = 100
 
 # ── FILE ──────────────────────────────────────────────────
 
@@ -78,6 +79,7 @@ def scan_file(filename):
     # FILTER CONDITIONS
     # =========================
     filtered = df[
+        (df["LTP"] > MIN_LTP) &
         (df["PRICE_CHANGE_PCT"] >= np.where(
             df["PARTICIPATION_RATE"] < PARTICIPATION_THRESHOLD,
             MIN_PCT_CHANGE_LOW_PARTICIPATION,

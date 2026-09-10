@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 from ta.volatility import AverageTrueRange
 
-from intraday.scanner.m5.early_momentum_breakout_scanner import is_early_momentum_breakout_detected
 from intraday.scanner.m5.volume_explosion_breakout_scanner import is_volume_explosion_breakout_detected
 from util.entry_type import EntryType
 from util.global_variables import *
@@ -220,8 +219,8 @@ def detect_setup(breakout_candle, breakout_time, participation_rate, opening_gap
     if is_volume_explosion_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
         return IntradaySetupType.EVB, EntryType.LONG
 
-    if is_early_momentum_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
-        return IntradaySetupType.EMB, EntryType.LONG
+    # if is_early_momentum_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
+    #     return IntradaySetupType.EMB, EntryType.LONG
 
     return None, None
 

@@ -3,11 +3,11 @@ from util.trade_logger import log
 
 # ── CONFIG ────────────────
 MIN_PRICE_CHANGE = 3.5
-MAX_PRICE_CHANGE = 9
+MAX_PRICE_CHANGE = 9.0
 MAX_OPENING_GAP_PCT = 5.0
 MAX_PARTICIPATION_RATE = 4.0
 MIN_VOLUME_MULTIPLIER = 15
-IDEAL_PARTICIPATION_RATE = 0.50
+IDEAL_PARTICIPATION_RATE = 0.35
 
 def is_volume_explosion_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
     if not is_liquid_breakout(participation_rate, MAX_PARTICIPATION_RATE):

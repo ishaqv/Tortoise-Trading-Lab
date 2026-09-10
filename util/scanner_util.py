@@ -1,8 +1,9 @@
 def is_strong_breakout_candle(breakout_candle,
                               body_threshold=0.6,
-                              max_wick_ratio=0.3):
+                              max_wick_ratio=0.25,
+                              max_body_atr_multiplier=7):
     """
-    Determines whether the breakout candle is a strong, healthy bullish candle(body > 50% and upper wick < 35%).
+    Determines whether the breakout candle is a strong, healthy bullish candle(body > 60% and upper wick < 25%).
     """
 
     breakout_open, breakout_close, breakout_high, breakout_low, breakout_volume, breakout_atr = (
@@ -26,6 +27,10 @@ def is_strong_breakout_candle(breakout_candle,
     if upper_wick_pct > max_wick_ratio:
         return False
 
+    # Overextended move
+    if body > breakout_atr * max_body_atr_multiplier:
+        return False
+
     return True
 
 
@@ -40,10 +45,10 @@ def is_liquid_breakout(participation_rate, max_participation_rate):
 def is_valid_price_change(breakout_candle, min_price_change, max_price_change):
     """
     """
-    # % price move from open
     if breakout_candle["open"] <= 0:
         return False
 
+    # % price move from open
     price_change_pct = (
                                (breakout_candle["close"] - breakout_candle["open"])
                                / breakout_candle["open"]

@@ -324,7 +324,7 @@ def process_symbol(
         partial_exit_pct=0.4,  # 0.5 = 50%, 0.3 = 30%
         entry_buffer_multiplier=2
 ):
-    ENTRY_LOOKAHEAD_CANDLES = 15
+    ENTRY_LOOKAHEAD_CANDLES = 5
 
     initialize_logger(
         TradeType.INTRADAY,
@@ -347,6 +347,16 @@ def process_symbol(
     add_technical_indicators(df)
 
     results = []
+
+    # signals_produced: number of times analyze_stock_for_setup found a
+    # valid setup (a "signal"), regardless of whether price ever traded
+    # through the entry trigger.
+    # entries_taken: number of those signals where the entry trigger
+    # actually got filled within ENTRY_LOOKAHEAD_CANDLES. May be >=
+    # the number of trades in `results`, since a filled entry can still
+    # be dropped afterward (e.g. no post-entry data, degenerate risk).
+    signals_produced = 0
+    entries_taken = 0
 
     day_groups = {d: g for d, g in df.groupby('day')}
 
@@ -380,11 +390,6 @@ def process_symbol(
                 if len(df_slice) < INTRADAY_M5_CANDLE_LIMIT:
                     continue
 
-                atr_value = df.at[breakout_idx, 'atr']
-
-                if pd.isna(atr_value) or atr_value == 0:
-                    continue
-
                 result = analyze_stock_for_setup(
                     symbol,
                     df_slice,
@@ -394,6 +399,8 @@ def process_symbol(
 
                 if result is None:
                     continue
+
+                signals_produced += 1
 
                 is_long = (
                         result["Entry Type"] ==
@@ -414,6 +421,11 @@ def process_symbol(
                     continue
 
                 confirmation_candle = df_after_breakout.iloc[0]
+
+                # Exhaustion Move Filter
+                if confirmation_candle["volume"] > breakout_candle["volume"] and confirmation_candle["high"] > \
+                        breakout_candle["high"]:
+                    continue
 
                 df_entry_window = df_after_breakout.iloc[
                     1:1 + ENTRY_LOOKAHEAD_CANDLES
@@ -469,6 +481,8 @@ def process_symbol(
 
                 if not entry_filled:
                     continue
+
+                entries_taken += 1
 
                 df_post_entry = df_trading_day_full.iloc[
                     entry_index + 1:
@@ -1161,7 +1175,7 @@ def process_symbol(
 
                 results.append(result)
 
-    return results
+    return results, signals_produced, entries_taken
 
 
 # =========================================================
@@ -1799,12 +1813,49 @@ def plot_real_equity(df):
     plt.show()
 
 
+def print_signal_conversion_summary(signals_produced, entries_taken):
+    """
+    signals_produced : setups found by analyze_stock_for_setup, across all
+                        symbols/days, before any entry-trigger check.
+    entries_taken     : of those signals, how many actually got filled
+                        (price traded through the entry trigger within
+                        ENTRY_LOOKAHEAD_CANDLES).
+    entry_ratio       : entries_taken / signals_produced — the fraction of
+                        signals that convert into an actual entry. A low
+                        ratio usually means the entry trigger/buffer is too
+                        far from where the signal fires.
+    """
+    entry_ratio = (entries_taken / signals_produced) if signals_produced > 0 else float("nan")
+
+    print("\n=======================================================")
+    print("  SIGNAL CONVERSION")
+    print("=======================================================")
+    print(f"  Signals Produced     : {signals_produced}")
+    print(f"  Entries Taken        : {entries_taken}")
+    print(
+        f"  Entry Ratio          : {entry_ratio:.2%}" if entry_ratio == entry_ratio else "  Entry Ratio          : n/a")
+
+    # CSV export
+    os.makedirs(REPORT_FOLDER, exist_ok=True)
+    summary = pd.DataFrame([{
+        "signals_produced": signals_produced,
+        "entries_taken": entries_taken,
+        "entry_ratio": round(entry_ratio, 4) if entry_ratio == entry_ratio else float("nan"),
+    }])
+    summary.to_csv(os.path.join(REPORT_FOLDER, "signal_conversion_summary.csv"), index=False)
+
+
 # =========================================================
 # ================= BACKTEST DRIVER =======================
 # =========================================================
 
 def backtest_historical_data_parallel(symbols_dict, max_workers=8):
     all_results = []
+
+    # Aggregated across every symbol, regardless of whether that symbol
+    # ended up contributing any completed trades to all_results.
+    total_signals_produced = 0
+    total_entries_taken = 0
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {
@@ -1815,11 +1866,15 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
         for future in as_completed(futures):
             sym = futures[future]
             try:
-                result = future.result()
+                result, signals_produced, entries_taken = future.result()
+                total_signals_produced += signals_produced
+                total_entries_taken += entries_taken
                 if result:
                     all_results.append(pd.DataFrame(result))
             except Exception as e:
                 print(f"Error processing {sym}: {e}")
+
+    print_signal_conversion_summary(total_signals_produced, total_entries_taken)
 
     if not all_results:
         print("No trades found.")
