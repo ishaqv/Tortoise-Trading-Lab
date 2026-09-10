@@ -2,10 +2,10 @@ from util.scanner_util import is_liquid_breakout, is_valid_opening_gap, is_valid
 from util.trade_logger import log
 
 # ── CONFIG ────────────────
-MIN_PRICE_CHANGE = 3.25
+MIN_PRICE_CHANGE = 3.5
 MAX_PRICE_CHANGE = 8.5
 MAX_OPENING_GAP_PCT = 2.5
-MAX_PARTICIPATION_RATE = 1.0
+MAX_PARTICIPATION_RATE = 0.75
 MIN_VOLUME_MULTIPLIER = 3
 
 
