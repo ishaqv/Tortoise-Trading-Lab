@@ -422,14 +422,12 @@ def process_symbol(
 
                 confirmation_candle = df_after_breakout.iloc[0]
 
-                # Exhaustion Move Filter
+                # Exhaustion Move Filter - wait one more candle before making an entry
                 if confirmation_candle["volume"] > breakout_candle["volume"] and confirmation_candle["high"] > \
                         breakout_candle["high"]:
-                    continue
-
-                df_entry_window = df_after_breakout.iloc[
-                    1:1 + ENTRY_LOOKAHEAD_CANDLES
-                ]
+                    df_entry_window = df_after_breakout.iloc[2:1 + ENTRY_LOOKAHEAD_CANDLES]
+                else:
+                    df_entry_window = df_after_breakout.iloc[1:1 + ENTRY_LOOKAHEAD_CANDLES]
 
                 # ==========================================================
                 # ENTRY TRIGGER
