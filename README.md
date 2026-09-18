@@ -96,44 +96,7 @@ See [`crontab`](crontab) for the full cron schedule.
 
 ## ✅ Setup
 
-### 🔹 Setup 1 - Explosive Volume Breakout (EVB)
-
-* Stock opens with explosive volume compared to average
-
-  ![EVB.png](EVB.png)
-
-#### 1. Strong Bullish Breakout Candle
-
-* **Wide body**: Candle body ≥ 60% of total range
-* **Small/No upper wick**: Upper wick < 25%
-
-#### 2. Strong Volume
-
-Volume ≥ 15x average volume (SMA 20 volume)
-
----
-
-### 🔹 Setup 2 — Early Momentum Breakout (EMB)
-
-A stock exhibiting early momentum with tight liquidity conditions.
-
-#### 1. Strong Bullish Breakout Candle
-
-- Candle body spans at least 60% of the total candle range
-- Upper wick is less than 25% of the total range
-
-#### 2. Strong Participation
-
-- `MAX_PARTICIPATION_RATE` < 0.5
-- Price change between 2% and 6%
-
-> Participation rate refers to the ratio of your order size relative to the volume traded during the breakout candle.
-
----
-
-### 🔹 Setup 3 - Top Gainers
-
-> **Note:** This is a complementary strategy.
+### 🔹 Setup 1 - Top Gainers
 
 #### Overview
 
@@ -156,15 +119,15 @@ opening volatility settles.
 3. Filtering logic:
 
 * Sort by **traded value (price * volume)** in DESC
-* Filter by **price change %** (2-6%)
-* Select the **top 2–3 stocks**
+* Filter by **price change %** (2-8%)
+* Select the **top 1-2 stocks**
 
 4. Optional:
 
 * Download the CSV file and perform filtering locally by
   runnning [nse_top_gainers_scanner_manual_run.py](nse_top_gainers_scanner_manual_run.py)
 
-> Alternatively, select an index (**NIFTY** or **NIFTY NEXT 50**) and apply the filters manually.
+> Alternatively, select the index **NIFTYNEXT50** and apply the filters manually.
 
 #### Selection Filters
 
@@ -178,10 +141,27 @@ Identify a small set of liquid stocks showing early strength and attempt to capi
 > This scanner is completely automated now. Read more here [README.md](intraday/scanner/m5/top_gainers/README.md)
 ---
 
+### 🔹 Setup 2 - Explosive Volume Breakout (EVB)
+
+* Stock opens with explosive volume compared to average
+
+  ![EVB.png](EVB.png)
+
+#### 1. Strong Bullish Breakout
+
+* Filter by **price change %** (3-8%)
+
+#### 2. Strong Volume
+
+Volume ≥ 15x average volume (SMA 20 volume)
+
+
+---
+
 ## 🔹 Setup 4 — Bull Trap Reversal (BTR)
 
 **Concept:** Identifies stocks that initially showed bullish momentum but failed to sustain it, leading to a reversal.
-This setup reuses the same candidates flagged by the Momentum Breakout scanner (from setup 1/2/3), but trades them in
+This setup reuses the same candidates flagged by the Breakout scanner (from setup 1/2), but trades them in
 the opposite direction — taking SHORT positions instead of LONG.
 
 ![BTR.png](BTR.png)
@@ -198,6 +178,8 @@ the opposite direction — taking SHORT positions instead of LONG.
 - The confirmation candle's low must be **below the VWAP** for the setup to be valid.
 
 ---
+
+#### If multiple setups trigger simultaneously, follow the priority order: Setup 1 → Setup 2 → Setup 3 → …
 
 ### Disclaimer: No setup works forever. Markets evolve, and setups evolve with them. If you fail to adapt, your edge will gradually disappear. ###
 
