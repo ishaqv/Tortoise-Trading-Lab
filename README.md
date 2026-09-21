@@ -168,10 +168,11 @@ the opposite direction — taking SHORT positions instead of LONG.
 
 **Entry Criteria:**
 
-- Wait for the confirmation candle's low to be broken.
-- **Do not enter on the first break.** The first break is treated as a trigger only — not an entry.
-- Allow price to retest the confirmation candle low level.
-- Enter SHORT only when price breaks below this low a **second time**.
+* Wait for the **confirmation candle’s low to be broken**, and require price to **close below that low**.
+* **Do not enter on the first break.** Treat the first break only as a **trigger**.
+* Wait for price to **retest the confirmation candle’s low** and **close back above that level**.
+* Enter **SHORT only when price breaks below the confirmation candle’s low for the second time**.
+
 
 **Filter Condition:**
 
