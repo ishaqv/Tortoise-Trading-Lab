@@ -12,10 +12,8 @@ from util.entry_type import EntryType
 from util.exit_model_util import ExitModel
 from util.global_variables import INTRADAY_M5_CANDLE_SIZE, TRADING_CAPITAL, MAX_RISK_PER_TRADE_PERCENT, \
     INTRADAY_LEVERAGE_MULTIPLIER, \
-    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_CANDLE_LIMIT, \
-    INTRADAY_M5_ATR_RISK_MULTIPLIER
+    EVB_SCAN_CANDLE_TIME, LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH, INTRADAY_M5_CANDLE_LIMIT
 from util.kite_util import get_kite
-from util.setup_type import IntradaySetupType
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger
 from util.trade_type import TradeType
@@ -31,9 +29,8 @@ REPORT_FOLDER = "reports"
 entry_slippage_bp = 2
 stop_slippage_bp = 4
 exit_model = ExitModel.STATIC
-EVB_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EVB travels 2 ATR from entry on average
-EMB_TARGET_R = 1.9 / INTRADAY_M5_ATR_RISK_MULTIPLIER  # EMB travels 2 ATR from entry on average
-DEFAULT_TARGET_R = 2.0 / INTRADAY_M5_ATR_RISK_MULTIPLIER
+target_r = 4
+
 # --------------------------------------------------------------
 # Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial
 # is booked). Deliberately NOT ATR-based: the stop trails behind the
@@ -488,13 +485,6 @@ def process_symbol(
 
                 if df_post_entry.empty:
                     continue
-
-                if result["Setup"] == IntradaySetupType.EVB.name:
-                    target_r = EVB_TARGET_R
-                elif result["Setup"] == IntradaySetupType.EMB.name:
-                    target_r = EMB_TARGET_R
-                else:
-                    target_r = DEFAULT_TARGET_R
 
                 risk = result["Risk"]
 
