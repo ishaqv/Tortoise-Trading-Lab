@@ -25,9 +25,17 @@
 
 ---
 
-## 2. Place Entry (SL-M Order)
+## 2. Wait for Confirmation
 
-* Place the SL-M entry order at the predefined level.
+If the **confirmation volume is higher than the breakout volume**, do not enter immediately on the candle following the
+confirmation candle, as the move may be exhaustive.
+
+Instead, **wait for one additional candle to complete**, and enter only when price breaks the **high of that completed
+candle**.
+
+## 3. Place Entry (SL-L Order)
+
+* Place the SL-L entry order at the predefined level.
 * Verify:
 
   * Quantity
@@ -37,24 +45,24 @@
 
 ---
 
-## 3. Place Emergency Stop-Loss
+## 4. Place Emergency Stop-Loss
 
 Immediately after the entry order is triggered:
 
 * Place a wide emergency stop-loss.
 * Protect against entry-candle volatility and unexpected moves.
-* **Maximum loss is limited to 2R.**
+* **Maximum loss is limited to 1R.**
 
 ---
 
-## 4. Place Target (Limit Order)
+## 5. Place Target (Limit Order)
 
 * Place the target limit order immediately.
 * Never trade without both a stop-loss and a target.
 
 ---
 
-## 5. Replace with Normal SL After Candle Close
+## 6. Replace with Normal SL After Candle Close
 
 After the entry candle closes:
 
@@ -69,7 +77,7 @@ After the entry candle closes:
 
 ---
 
-## 6. Move SL to Breakeven
+## 7. Move SL to Breakeven
 
 Move the stop-loss to breakeven **only after predefined conditions are met** (e.g., price reaches **2R**).
 
@@ -78,9 +86,9 @@ Move the stop-loss to breakeven **only after predefined conditions are met** (e.
 
 ---
 
-## 7. Manage Winners (Trail / Partial Exit)
+## 8. Manage Winners (Extend Target / Trail / Partial Exit)
 
-Consider extending the target or taking a partial exit **only if**:
+Consider **extending the target** or taking a **partial exit** **only if**:
 
 * Volume is **well above average across multiple candles**.
 * Price maintains:
@@ -92,7 +100,7 @@ Ignore Market Depth. It is often unreliable.
 
 ---
 
-## 8. Cancel Remaining Orders
+## 9. Cancel Remaining Orders
 
 When either the stop-loss or target is hit:
 
@@ -101,7 +109,7 @@ When either the stop-loss or target is hit:
 
 ---
 
-## 9. Trade Postmortem
+## 10. Trade Postmortem
 
 After market close:
 
@@ -117,7 +125,7 @@ Record:
 
 ---
 
-## 10. Review Weekly & Monthly
+## Review Weekly & Monthly
 
 **Weekly**
 
@@ -136,7 +144,6 @@ Record:
 # 🛡 Risk Rules
 
 * Risk only **1R** per trade.
-* Emergency stop-loss limits the maximum loss to **2R**.
 * Never widen a stop-loss.
 * Never average down.
 * Never revenge trade.
@@ -146,7 +153,7 @@ Record:
 
 # ✅ Daily Checklist
 
-### Before Market
+### Before Entry
 
 * ☐ Mark key levels.
 * ☐ Review market context.
