@@ -29,7 +29,7 @@ REPORT_FOLDER = "reports"
 entry_slippage_bp = 2
 stop_slippage_bp = 4
 exit_model = ExitModel.STATIC
-target_r = 4
+target_r = 4.25
 
 # --------------------------------------------------------------
 # Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial
@@ -418,6 +418,7 @@ def process_symbol(
                     continue
 
                 confirmation_candle = df_after_breakout.iloc[0]
+                candle_after_confirmation = df_after_breakout.iloc[1]
 
                 # Exhaustion Move Filter - wait one more candle before making an entry
                 if confirmation_candle["volume"] > breakout_candle["volume"] and confirmation_candle["high"] > \
@@ -432,9 +433,16 @@ def process_symbol(
                 tick_size = get_tick_size(confirmation_candle["high"])
 
                 if is_long:
-                    trigger_price = (
-                            confirmation_candle["high"] + entry_buffer_multiplier * tick_size
-                    )
+
+                    if confirmation_candle["volume"] > breakout_candle["volume"] and breakout_candle["high"] < \
+                            confirmation_candle["high"]:
+                        trigger_price = (
+                                candle_after_confirmation["high"] + entry_buffer_multiplier * tick_size
+                        )
+                    else:
+                        trigger_price = (
+                                confirmation_candle["high"] + entry_buffer_multiplier * tick_size
+                        )
 
                 else:
 
