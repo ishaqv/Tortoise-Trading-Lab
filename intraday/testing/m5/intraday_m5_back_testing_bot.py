@@ -1,6 +1,6 @@
 import os
 import time
-from collections import deque
+from collections import deque, defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
@@ -352,8 +352,9 @@ def process_symbol(
     # actually got filled within ENTRY_LOOKAHEAD_CANDLES. May be >=
     # the number of trades in `results`, since a filled entry can still
     # be dropped afterward (e.g. no post-entry data, degenerate risk).
-    signals_produced = 0
-    entries_taken = 0
+    # Tracked PER SETUP (result["Setup"]) so conversion can be compared
+    # setup-by-setup instead of only as one blended number.
+    signals_by_setup = defaultdict(lambda: {"signals": 0, "entries": 0})
 
     day_groups = {d: g for d, g in df.groupby('day')}
 
@@ -397,7 +398,8 @@ def process_symbol(
                 if result is None:
                     continue
 
-                signals_produced += 1
+                setup_name = result.get("Setup", "UNKNOWN")
+                signals_by_setup[setup_name]["signals"] += 1
 
                 is_long = (
                         result["Entry Type"] ==
@@ -485,7 +487,7 @@ def process_symbol(
                 if not entry_filled:
                     continue
 
-                entries_taken += 1
+                signals_by_setup[setup_name]["entries"] += 1
 
                 df_post_entry = df_trading_day_full.iloc[
                     entry_index + 1:
@@ -1171,7 +1173,7 @@ def process_symbol(
 
                 results.append(result)
 
-    return results, signals_produced, entries_taken
+    return results, dict(signals_by_setup)
 
 
 # =========================================================
@@ -1809,35 +1811,56 @@ def plot_real_equity(df):
     plt.show()
 
 
-def print_signal_conversion_summary(signals_produced, entries_taken):
+def print_signal_conversion_summary(signals_by_setup):
     """
-    signals_produced : setups found by analyze_stock_for_setup, across all
-                        symbols/days, before any entry-trigger check.
-    entries_taken     : of those signals, how many actually got filled
-                        (price traded through the entry trigger within
-                        ENTRY_LOOKAHEAD_CANDLES).
-    entry_ratio       : entries_taken / signals_produced — the fraction of
-                        signals that convert into an actual entry. A low
-                        ratio usually means the entry trigger/buffer is too
-                        far from where the signal fires.
+    signals_by_setup : {setup_name: {"signals": int, "entries": int}}
+
+    signals : setups found by analyze_stock_for_setup, across all
+              symbols/days, before any entry-trigger check.
+    entries : of those signals, how many actually got filled (price traded
+              through the entry trigger within ENTRY_LOOKAHEAD_CANDLES).
+    ratio   : entries / signals. A low ratio usually means the entry
+              trigger/buffer is too far from where the signal fires.
     """
-    entry_ratio = (entries_taken / signals_produced) if signals_produced > 0 else float("nan")
+    rows = []
+    for setup, c in sorted(signals_by_setup.items()):
+        sig, ent = c["signals"], c["entries"]
+        rows.append({
+            "Setup": setup,
+            "Signals": sig,
+            "Entries": ent,
+            "Missed": sig - ent,
+            "Entry_Ratio": round(ent / sig, 4) if sig > 0 else float("nan"),
+        })
+
+    summary = pd.DataFrame(rows)
+
+    if not summary.empty:
+        tot_sig = int(summary["Signals"].sum())
+        tot_ent = int(summary["Entries"].sum())
+        summary = pd.concat([summary, pd.DataFrame([{
+            "Setup": "TOTAL",
+            "Signals": tot_sig,
+            "Entries": tot_ent,
+            "Missed": tot_sig - tot_ent,
+            "Entry_Ratio": round(tot_ent / tot_sig, 4) if tot_sig > 0 else float("nan"),
+        }])], ignore_index=True)
 
     print("\n=======================================================")
-    print("  SIGNAL CONVERSION")
+    print("  SIGNAL CONVERSION (By Setup)")
     print("=======================================================")
-    print(f"  Signals Produced     : {signals_produced}")
-    print(f"  Entries Taken        : {entries_taken}")
-    print(
-        f"  Entry Ratio          : {entry_ratio:.2%}" if entry_ratio == entry_ratio else "  Entry Ratio          : n/a")
+    if summary.empty:
+        print("  No signals produced.")
+        return
+
+    display = summary.copy()
+    display["Entry_Ratio"] = display["Entry_Ratio"].map(
+        lambda x: f"{x:.2%}" if x == x else "n/a"
+    )
+    print(display.to_string(index=False))
 
     # CSV export
     os.makedirs(REPORT_FOLDER, exist_ok=True)
-    summary = pd.DataFrame([{
-        "signals_produced": signals_produced,
-        "entries_taken": entries_taken,
-        "entry_ratio": round(entry_ratio, 4) if entry_ratio == entry_ratio else float("nan"),
-    }])
     summary.to_csv(os.path.join(REPORT_FOLDER, "signal_conversion_summary.csv"), index=False)
 
 
@@ -1848,10 +1871,9 @@ def print_signal_conversion_summary(signals_produced, entries_taken):
 def backtest_historical_data_parallel(symbols_dict, max_workers=8):
     all_results = []
 
-    # Aggregated across every symbol, regardless of whether that symbol
-    # ended up contributing any completed trades to all_results.
-    total_signals_produced = 0
-    total_entries_taken = 0
+    # Aggregated across every symbol, per setup, regardless of whether that
+    # symbol ended up contributing any completed trades to all_results.
+    total_by_setup = defaultdict(lambda: {"signals": 0, "entries": 0})
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {
@@ -1862,15 +1884,16 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
         for future in as_completed(futures):
             sym = futures[future]
             try:
-                result, signals_produced, entries_taken = future.result()
-                total_signals_produced += signals_produced
-                total_entries_taken += entries_taken
+                result, signals_by_setup = future.result()
+                for setup, c in signals_by_setup.items():
+                    total_by_setup[setup]["signals"] += c["signals"]
+                    total_by_setup[setup]["entries"] += c["entries"]
                 if result:
                     all_results.append(pd.DataFrame(result))
             except Exception as e:
                 print(f"Error processing {sym}: {e}")
 
-    print_signal_conversion_summary(total_signals_produced, total_entries_taken)
+    print_signal_conversion_summary(dict(total_by_setup))
 
     if not all_results:
         print("No trades found.")
