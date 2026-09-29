@@ -19,12 +19,11 @@ class IntradaySetupType(Enum):
     EMB = auto()  # Early Momentum Breakout
 
 
-class SwingSetupType(Enum):
+class PositionalSetupType(Enum):
     """
         Enum representing different types of swing trading setups.
 
         Members:
             CRB  : Compressed Range Breakout - Price breaking out after a tight consolidation.
     """
-    CRB = auto()
-    VEB = auto()
+    MA50B = auto()
