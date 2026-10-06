@@ -6,7 +6,7 @@ MIN_PRICE_CHANGE = 3.5
 MAX_PRICE_CHANGE = 9.0
 MAX_OPENING_GAP_PCT = 5.0
 MAX_PARTICIPATION_RATE = 2.0
-MIN_VOLUME_MULTIPLIER = 15
+MIN_VOLUME_MULTIPLIER = 13
 IDEAL_PARTICIPATION_RATE = 0.35
 
 def is_volume_explosion_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):

@@ -177,6 +177,7 @@ the opposite direction — taking SHORT positions instead of LONG.
 **Filter Condition:**
 
 - The confirmation candle's low must be **below the VWAP** for the setup to be valid.
+- Do not enter the trade before 9.55 AM. The setup performs best when entries are taken after or around 10:00 AM.
 
 ---
 
