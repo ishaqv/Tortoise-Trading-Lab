@@ -4,6 +4,7 @@ from util.global_variables import INTRADAY_M5_CANDLE_SIZE, LIQUID_SHARIAH_SYMBOL
 from util.historical_candle_data_util import append_latest_candle_data_from_kite
 from util.kite_util import init_kite_session
 from util.shariah_stock_filter import get_symbol_instrument_token
+from util.telegram_bot import send_telegram_alert
 from util.trade_logger import initialize_logger, log
 from util.trade_type import TradeType
 
@@ -33,9 +34,16 @@ def run_scan() -> None:
         symbol_df_map, new_records = append_latest_candle_data_from_kite(f"{INTRADAY_M5_CANDLE_SIZE}minute",
                                                                          symbol_token_map,
                                                                          INTRADAY_M5_CANDLE_SIZE, symbol_df_map)
+        message = f"Starting setup(EVB) scan across {len(symbol_df_map)} symbols."
+        log("info", message)
+        send_telegram_alert(message)
 
         # run screener to find potential setup
         run_intraday_screener(symbol_df_map)
+
+        message = "Setup scan completed."
+        log("info", message)
+        send_telegram_alert(message)
 
         # Persist latest candle data
         if new_records:

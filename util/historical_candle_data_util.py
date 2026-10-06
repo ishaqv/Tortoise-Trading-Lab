@@ -3,7 +3,7 @@ from datetime import timedelta, datetime, date
 import pandas as pd
 
 from util.db_util import write_historical_data
-from util.global_variables import IST, SWING_CANDLE_LIMIT, DB_INSERT_BUFFER_SIZE
+from util.global_variables import IST, DAILY_CANDLE_LIMIT, DB_INSERT_BUFFER_SIZE
 from util.kite_util import fetch_historical_data_from_kite
 from util.trade_logger import log
 
@@ -132,7 +132,7 @@ def fetch_historical_data_for_symbol_daily(symbol, instrument_token, last_stored
             from_date = last_stored_date + timedelta(days=1)
         else:
             # No data yet — pull from a reasonable default (e.g.30 days back)
-            from_date = today - timedelta(days=SWING_CANDLE_LIMIT * 2)
+            from_date = today - timedelta(days=DAILY_CANDLE_LIMIT * 2)
 
         to_date = today
 
@@ -226,18 +226,27 @@ def persist_historical_data(
         table_name,
         interval,
         symbol_token_map,
-        candle_size,
-        last_ts_map
+        last_ts_map,
+        candle_size=None
 ):
     buffer = []
 
     for symbol, instrument_token in symbol_token_map.items():
         if interval == "day":
             records = fetch_historical_data_for_symbol_daily(
-                symbol, instrument_token, last_ts_map.get(symbol), interval)
+                symbol,
+                instrument_token,
+                last_ts_map.get(symbol),
+                interval
+            )
         else:
             records = fetch_historical_data_for_symbol(
-                symbol, instrument_token, last_ts_map.get(symbol), interval, candle_size)
+                symbol,
+                instrument_token,
+                last_ts_map.get(symbol),
+                interval,
+                candle_size
+            )
 
         if not records:
             continue

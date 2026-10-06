@@ -8,4 +8,4 @@
 35 15 * * 1-5 flock /tmp/m5_backfill.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/intraday_m5_backfill.py'
 
 #Runs daily candle backfill at 3.40PM (it is required to find liquid symbol universe)
-40 15 * * 1-5 flock /tmp/daily_backfill.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/swing_day_backfill.py'
+40 15 * * 1-5 flock /tmp/daily_backfill.lock bash -c 'source /home/ishaqvattaparambil/Tortoise-Trading-Lab/venv/bin/activate && python /home/ishaqvattaparambil/Tortoise-Trading-Lab/daily_candle_backfill.py'

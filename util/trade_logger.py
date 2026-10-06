@@ -1,5 +1,4 @@
 import logging
-import os
 import threading
 import time
 from datetime import datetime
@@ -23,51 +22,66 @@ LOG_LEVELS = {
 
 def initialize_logger(trade_type, timeframe, log_to_console=False) -> logging.Logger:
     """
-        Sets up and returns a logger for the trading scanner application.
-
-        - Depending on the `log_to_console` flag, logs will be written either to:
-            • The console (terminal), or
-            • A log file stored in the "logs" folder of your project.
-        - If logging setup fails, it falls back to basic console logging and reports the error.
+    Sets up and returns a logger for the trading scanner application.
     """
-
     global logger
+
     with log_lock:
         if logger is not None:
             return logger
 
         logger = logging.getLogger("TradingScannerLogger")
-        logger.setLevel(logging.DEBUG)  # Enable all log levels
+        logger.setLevel(logging.DEBUG)
 
         try:
             if log_to_console:
-                # Console handler
                 console_handler = logging.StreamHandler()
-                console_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+                console_handler.setFormatter(
+                    logging.Formatter("[%(levelname)s] %(message)s")
+                )
                 console_handler.setLevel(logging.DEBUG)
                 logger.addHandler(console_handler)
+
             else:
-                # File handler
-                project_root = Path(__file__).resolve().parents[1]
-                log_dir = project_root / trade_type.name.lower() / "logs" / timeframe
+                log_dir = get_log_directory(trade_type, timeframe)
                 log_dir.mkdir(parents=True, exist_ok=True)
 
-                today = datetime.now(IST).strftime("%Y-%m-%d")
-                log_file_path = log_dir / f"{trade_type.name.lower()}_trading_{timeframe}_scanner_{today}.log"
+                log_file_name = get_log_file_name(
+                    trade_type,
+                    timeframe
+                )
 
-                file_handler = logging.FileHandler(log_file_path, encoding="utf-8")
-                file_formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-                file_handler.setFormatter(file_formatter)
+                log_file_path = log_dir / log_file_name
+
+                file_handler = logging.FileHandler(
+                    log_file_path,
+                    encoding="utf-8"
+                )
+
+                file_handler.setFormatter(
+                    logging.Formatter(
+                        "%(asctime)s - %(levelname)s - %(message)s"
+                    )
+                )
+
                 file_handler.setLevel(logging.DEBUG)
                 logger.addHandler(file_handler)
+
         except Exception as e:
-            # Fallback to console if anything fails
             fallback_handler = logging.StreamHandler()
-            fallback_handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+            fallback_handler.setFormatter(
+                logging.Formatter("[%(levelname)s] %(message)s")
+            )
             logger.addHandler(fallback_handler)
-            logger.error("⚠️ Failed to set up logger properly. Falling back to console.", exc_info=e)
+
+            logger.error(
+                "⚠️ Failed to set up logger properly. "
+                "Falling back to console.",
+                exc_info=e
+            )
 
         logger.propagate = False
+
         return logger
 
 
@@ -87,37 +101,85 @@ def log(level: str, message: str, exc_info: bool = False):
             logger.warning(f"⚠️ Unknown log level '{level}'. Message: {message}")
 
 
-def purge_old_logs(trade_type, timeframe, log_dir='logs', days=0.5):
+def purge_old_logs(trade_type, timeframe, log_dir="logs", days=0.5):
     """
-    Deletes log files older than a specified number of days from the given log directory.
-
-    This function is useful for automatically cleaning up old log files and saving disk space.
-
+    Deletes log files older than the specified number of days.
     """
 
-    # Resolve absolute path relative to the script file
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    full_log_path = os.path.join(base_dir, '..', trade_type.name.lower(), log_dir, timeframe)
-    full_log_path = os.path.abspath(full_log_path)  # normalize path
+    full_log_path = get_log_directory(
+        trade_type,
+        timeframe,
+        log_dir
+    )
 
     now = time.time()
-    cutoff_time = now - (days * 86400)  # 86400 seconds in a day
+    cutoff_time = now - (days * 86400)
 
-    if not os.path.exists(full_log_path):
-        log("info", f"Log directory '{full_log_path}' does not exist.")
+    if not full_log_path.exists():
+        log(
+            "info",
+            f"Log directory '{full_log_path}' does not exist."
+        )
         return
 
     deleted_files = []
 
-    for filename in os.listdir(full_log_path):
-        file_path = os.path.join(full_log_path, filename)
-        if os.path.isfile(file_path):
-            file_mtime = os.path.getmtime(file_path)
-            if file_mtime < cutoff_time:
-                os.remove(file_path)
-                deleted_files.append(filename)
+    for file_path in full_log_path.iterdir():
+
+        if not file_path.is_file():
+            continue
+
+        # Only process files matching our log naming convention
+        if not file_path.name.startswith(
+                get_log_file_name(trade_type, timeframe).split(
+                    datetime.now(IST).strftime("%Y-%m-%d")
+                )[0]
+        ):
+            continue
+
+        if file_path.stat().st_mtime < cutoff_time:
+            file_path.unlink()
+            deleted_files.append(file_path.name)
 
     if deleted_files:
-        log("info", f"Deleted {len(deleted_files)} old log file(s): {deleted_files}")
+        log(
+            "info",
+            f"Deleted {len(deleted_files)} old log file(s): "
+            f"{deleted_files}"
+        )
     else:
         log("info", "No old log files found to delete.")
+
+
+def get_log_directory(trade_type, timeframe, log_dir="logs") -> Path:
+    """
+    Returns the absolute log directory used by the application.
+    """
+    project_root = Path(__file__).resolve().parents[1]
+
+    if trade_type is not None:
+        return (
+                project_root
+                / trade_type.name.lower()
+                / log_dir
+                / timeframe
+        )
+
+    return project_root / log_dir / timeframe
+
+
+def get_log_file_name(trade_type, timeframe, date=None) -> str:
+    """
+    Returns the log file name used by the application.
+    """
+    if date is None:
+        date = datetime.now(IST).strftime("%Y-%m-%d")
+
+    if trade_type is not None:
+        trade_type_name = trade_type.name.lower()
+        return (
+            f"{trade_type_name}_"
+            f"{timeframe}_{date}.log"
+        )
+
+    return f"{timeframe}_{date}.log"

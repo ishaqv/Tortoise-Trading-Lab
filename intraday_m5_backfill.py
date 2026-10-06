@@ -31,7 +31,7 @@ def run_backfill() -> None:
         last_ts_map = get_last_stored_ts_for_symbols(table_name, symbols)
 
         persist_historical_data(table_name, f"{INTRADAY_M5_CANDLE_SIZE}minute", symbol_token_map,
-                                INTRADAY_M5_CANDLE_SIZE, last_ts_map)
+                                last_ts_map, INTRADAY_M5_CANDLE_SIZE)
 
         # Remove stale data
         purge_old_historical_data(table_name, symbols, INTRADAY_M5_CANDLE_LIMIT)

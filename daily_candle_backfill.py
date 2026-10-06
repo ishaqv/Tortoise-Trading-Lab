@@ -1,12 +1,11 @@
 from util.db_util import get_table_name, purge_old_historical_data, \
     get_last_stored_ts_for_symbols
-from util.global_variables import SWING_CANDLE_SIZE, SWING_CANDLE_LIMIT, MASTER_SHARIAH_SYMBOL_TOKEN_FILE_PATH, \
+from util.global_variables import DAILY_CANDLE_LIMIT, MASTER_SHARIAH_SYMBOL_TOKEN_FILE_PATH, \
     ENABLE_CONSOLE_LOGGING
 from util.historical_candle_data_util import persist_historical_data
 from util.kite_util import init_kite_session
 from util.shariah_stock_filter import get_symbol_instrument_token
 from util.trade_logger import initialize_logger, purge_old_logs, log
-from util.trade_type import TradeType
 
 
 def run_backfill() -> None:
@@ -17,7 +16,7 @@ def run_backfill() -> None:
     """
     try:
         # init logging
-        initialize_logger(TradeType.SWING, "d1", ENABLE_CONSOLE_LOGGING)
+        initialize_logger(None, "d1", ENABLE_CONSOLE_LOGGING)
 
         # init kite
         init_kite_session()
@@ -32,12 +31,11 @@ def run_backfill() -> None:
         table_name = get_table_name("d1")
         last_ts_map = get_last_stored_ts_for_symbols(table_name, symbols)
 
-        persist_historical_data(table_name, "day", symbol_token_map,
-                                SWING_CANDLE_SIZE, last_ts_map)
+        persist_historical_data(table_name, "day", symbol_token_map, last_ts_map)
 
         # Remove stale data
-        purge_old_historical_data(table_name, symbols, SWING_CANDLE_LIMIT)
-        purge_old_logs(TradeType.SWING, "d1")
+        purge_old_historical_data(table_name, symbols, DAILY_CANDLE_LIMIT)
+        purge_old_logs(None, "d1")
 
     except Exception as e:
         log("exception", f"🔥 Error during BACKFILL: {e}")
