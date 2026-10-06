@@ -23,6 +23,7 @@ INTRADAY_M5_CANDLE_LIMIT = int(
 INTRADAY_M15_CANDLE_LIMIT = int(
     (INTRADAY_HISTORICAL_DATA_CACHE_DAYS * TRADING_MINUTES_PER_DAY) // INTRADAY_M15_CANDLE_SIZE)
 POSITIONAL_CANDLE_LIMIT = 51
+SWING_CANDLE_LIMIT = 30
 IST = ZoneInfo("Asia/Kolkata")
 LIQUID_SHARIAH_SYMBOL_TOKEN_FILE_PATH = Path(__file__).resolve().parents[1] / "nse_liquid_shariah_symbol_token.csv"
 LIQUID_SHARIAH_SYMBOL_FILE_PATH = Path(__file__).resolve().parents[1] / "nse_liquid_shariah_symbol.csv"
