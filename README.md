@@ -246,23 +246,31 @@ Enter your **Trading Capital**, **Symbol**, and **ATR** to calculate the recomme
 
 ## 🎯 Entry Strategy
 
-* Entry: Place your buy order at the high of the confirmation candle, adding a small buffer of 0.25× ATR above it.
-* Order Type: Use a SL-M (Stop-Loss Market) BUY order with market protection. This ensures your entry is fully filled
-  even during fast price moves — unlike an SL-Limit order, which risks partial or missed fills when the market gaps or
-  moves quickly.
+* Entry: Place your buy order at the high of the confirmation candle with a small buffer.
+* Order Type: Use a SL-L (Stop-Loss Limit) BUY order.
+* Initially, I used SL-M to ensure the entry was fully filled even during fast price movements, unlike SL-Limit orders,
+  which can result in partial or missed fills during gaps or rapid moves. However, the significant monthly slippage made
+  me reconsider, so I reverted to SL-L.
+* The distance between the entry trigger price and entry limit price is calculated as a multiple of the tick size, with
+  entry slippage capped at 10% of the total risk.
 
 ![SL-M BUY.png](SL-M%20BUY.png)
 
 ``⚠️ SL-M orders can experience slippage during periods of low liquidity or high volatility. In such situations, your order may execute at a higher price significantly different from your intended entry price.``
+
+![SL-L BUY.png](SL-L%20BUY.png)
 
 ---
 
 ## ❄️ Stop Loss (SL)
 
 * SL: Entry - Risk (0.5× ATR)
-* Order Type: Use a SL-M (Stop-Loss Market) SELL order with market protection. This ensures you exit cleanly even during
-  fast price moves — unlike an SL-Limit order, which risks partial or missed exits when the market gaps or moves
-  quickly.
+* Order Type: Use a SL-L (Stop-Loss Limit) SELL order .
+* Initially, I used SL-M for exits to ensure a clean exit even during fast price movements, unlike SL-Limit orders,
+  which risk partial or missed exits when the market gaps or moves rapidly. However, the heavy slippage made me
+  reconsider, so I reverted to SL-L.
+* The distance between the exit trigger price and exit limit price is calculated as a multiple of the tick size, with
+  exit slippage capped at 20% of the total risk.
 
 > As trade progresses, shift SL to latest swing low + buffer. Avoid obvious SL zones known to attract stop hunts.
 
@@ -270,6 +278,8 @@ Enter your **Trading Capital**, **Symbol**, and **ATR** to calculate the recomme
 ![SL-M SELL.png](SL-M%20SELL.png)
 
 ``⚠️ SL-M orders can experience slippage during periods of low liquidity or high volatility. In such situations, your order may execute at a lower price significantly different from your intended exit price.``
+
+![SL-L SELL.png](SL-L%20SELL.png)
 
 #### Entry Candle Protection Rule
 
@@ -377,84 +387,86 @@ As a general guideline, consider using a partial exit strategy when you observe 
 
 ### 📊 Strategy Performance Summary (EVB)
 
-```Capital = 4L, Backtest Duration = 5 years```
+```Capital = 5L, Backtest Duration = 5 years```
 
 #### Fixed target Backtest Performance
+
+Absolutely — here’s the same output converted into clean **Markdown/README tables**, keeping each section separate.
+
+##### Signal Conversion (By Setup)
+
+| Setup     | Signals | Entries |  Missed | Entry Ratio |
+|-----------|--------:|--------:|--------:|------------:|
+| EVB       |     770 |     407 |     363 |      52.86% |
+| **TOTAL** | **770** | **407** | **363** |  **52.86%** |
 
 ##### Key Metrics Summary
 
 | Metric                              |         Value |
 |-------------------------------------|--------------:|
-| Capital (₹)                         |       400,000 |
-| R (₹)                               |      10,000.0 |
-| Total Trades                        |           800 |
-| Wins / Losses / BE                  | 331 / 469 / 0 |
-| Win Rate                            |         41.4% |
-| Avg Win (R)                         |          2.38 |
-| Avg Win (R, Theoretical/Uncapped)   |          4.23 |
-| Avg Loss (R)                        |         -0.79 |
+| Capital (₹)                         |      ₹500,000 |
+| R (₹)                               |       ₹12,500 |
+| Total Trades                        |           407 |
+| Wins / Losses / BE                  | 171 / 236 / 0 |
+| Win Rate                            |         42.0% |
+| Avg Win (R)                         |          2.81 |
+| Avg Win (R, Theoretical/Uncapped)   |          4.21 |
+| Avg Loss (R)                        |         -0.90 |
 | Avg Loss (R, Theoretical/Uncapped)  |         -1.00 |
-| Win/Loss Ratio                      |          3.01 |
-| Expectancy (R, Gross, pre-cost)     |          0.68 |
-| Expectancy (₹, Gross, pre-cost)     |        ₹6,762 |
-| Expectancy (R, Net, post-cost)      |          0.52 |
-| Expectancy (₹, Net, post-cost)      |        ₹5,214 |
-| Profit Factor                       |          2.12 |
-| Best / Worst Trade (R)              |  4.17 / -1.19 |
-| Total R (Gross, pre-cost)           |        540.98 |
-| Total R (Net, post-cost)            |        417.13 |
-| Total PnL (₹, net)                  |    ₹4,171,303 |
-| Max Drawdown (R)                    |         -8.84 |
-| Max Drawdown (₹)                    |      ₹-88,359 |
-| Max Drawdown (%)                    |        -6.84% |
-| Max DD Duration (days)              |           226 |
-| Recovery Factor                     |         47.21 |
-| Max Losing Streak                   |             9 |
-| Max Winning Streak                  |             9 |
-| Avg MFE Execution (R)               |         +3.60 |
-| Avg MFE Full Day (R)                |        +10.44 |
-| Capture Efficiency                  |        49.48% |
-| Avg MAE (R)                         |         -2.13 |
-| % Trades MAE > 0.5R                 |        69.25% |
-| Avg Duration (min)                  |         11.61 |
-| Total Flat Brokerage/STT (₹)        |      ₹585,967 |
-| Total Slippage Cost (₹)             |      ₹652,528 |
-| Total Cost (₹)                      |    ₹1,238,494 |
-| Avg Cost / Trade (₹)                |        ₹1,548 |
-| Cost Drag (% of Gross PnL)          |        22.89% |
-| % Trades Leverage-Constrained       |        92.25% |
-| Avg Trades / Month                  |         13.46 |
-| Rolling 20-Trade Expectancy (Gross) |        0.87 R |
-| Rolling 20-Trade Expectancy (Net)   |        0.72 R |
-| Rolling 20-Trade Win Rate           |         45.0% |
-
----
+| Win/Loss Ratio                      |          3.11 |
+| Expectancy (R, Gross, pre-cost)     |          0.81 |
+| Expectancy (₹, Gross, pre-cost)     |       ₹10,108 |
+| Expectancy (R, Net, post-cost)      |          0.66 |
+| Expectancy (₹, Net, post-cost)      |        ₹8,212 |
+| Profit Factor                       |          2.25 |
+| Best / Worst Trade (R)              |  4.19 / -1.19 |
+| Total R (Gross, pre-cost)           |        329.11 |
+| Total R (Net, post-cost)            |        267.37 |
+| Total PnL (₹, net)                  |    ₹3,342,087 |
+| Max Drawdown (R)                    |         -6.99 |
+| Max Drawdown (₹)                    |      -₹87,389 |
+| Max Drawdown (%)                    |        -6.97% |
+| Max DD Duration (days)              |           134 |
+| Recovery Factor                     |         38.24 |
+| Max Losing Streak                   |             7 |
+| Max Winning Streak                  |             7 |
+| Avg MFE Execution (R)               |         +3.44 |
+| Avg MFE Full Day (R)                |         +9.40 |
+| Capture Efficiency                  |        51.29% |
+| Avg MAE (R)                         |         -1.91 |
+| % Trades MAE > 0.5R                 |        67.32% |
+| Avg Duration (min)                  |         15.33 |
+| Total Flat Brokerage/STT (₹)        |      ₹364,923 |
+| Total Slippage Cost (₹)             |      ₹406,889 |
+| Total Cost (₹)                      |      ₹771,812 |
+| Avg Cost / Trade (₹)                |        ₹1,896 |
+| Cost Drag (% of Gross PnL)          |        18.76% |
+| % Trades Leverage-Constrained       |        87.96% |
+| Avg Trades / Month (span-based)     |          6.82 |
+| Avg Trades / Month (calendar)       |          6.90 |
+| Max Trades / Month                  |            20 |
+| Min Trades / Month                  |             1 |
+| Rolling 20-Trade Expectancy (Gross) |        0.47 R |
+| Rolling 20-Trade Expectancy (Net)   |        0.31 R |
+| Rolling 20-Trade Win Rate           |         35.0% |
 
 ##### Setup Summary
 
-| Setup | Trades | Win Rate | Avg Win (R) | Avg Loss (R) | Expectancy (Gross R) | Expectancy (Net R) | Total R (Gross) | Total R (Net) |  Total PnL | Profit Factor | Max DD (R) | Max DD (₹) |
-|-------|-------:|---------:|------------:|-------------:|---------------------:|-------------------:|----------------:|--------------:|-----------:|--------------:|-----------:|-----------:|
-| EMB   |    614 |    41.0% |         2.4 |         -0.8 |                 0.68 |               0.52 |          414.89 |        319.97 | ₹3,199,654 |          2.10 |       -9.8 |   ₹-97,803 |
-| EVB   |    186 |    42.5% |         2.2 |         -0.7 |                 0.68 |               0.52 |          126.09 |         97.16 |   ₹971,649 |          2.22 |      -11.3 |  ₹-112,550 |
+| Setup | Trades | Win Rate | Avg Win (R) | Avg Loss (R) | Expectancy (R) Gross | Expectancy (R) Net | Total R Gross | Total R Net |  Total PnL | Profit Factor | Max DD (R) | Max DD (₹) |
+|-------|-------:|---------:|------------:|-------------:|---------------------:|-------------------:|--------------:|------------:|-----------:|--------------:|-----------:|-----------:|
+| EVB   |    407 |    42.0% |         2.8 |         -0.9 |                 0.81 |               0.66 |        329.11 |      267.37 | ₹3,342,087 |          2.25 |       -7.0 |   -₹87,389 |
 
----
+##### Year-Wise Performance (By Setup)
 
-#### Year-wise Performance
+| Year | Setup | Trades | Win Rate | Expectancy (R) Gross | Expectancy (R) Net | Total R Gross | Total R Net |  Total PnL | Profit Factor | Max DD (R) | Max DD (₹) |
+|-----:|-------|-------:|---------:|---------------------:|-------------------:|--------------:|------------:|-----------:|--------------:|-----------:|-----------:|
+| 2021 | EVB   |      9 |    44.4% |                 1.00 |               0.85 |           9.0 |        7.69 |    ₹96,141 |          2.57 |       -2.3 |   -₹28,201 |
+| 2022 | EVB   |     24 |    45.8% |                 1.09 |               0.95 |          26.1 |       22.77 |   ₹284,590 |          3.01 |       -3.6 |   -₹44,523 |
+| 2023 | EVB   |     50 |    42.0% |                 0.91 |               0.76 |          45.7 |       38.00 |   ₹474,943 |          2.59 |       -5.1 |   -₹63,528 |
+| 2024 | EVB   |    111 |    38.7% |                 0.62 |               0.47 |          69.2 |       52.11 |   ₹651,324 |          1.83 |       -7.0 |   -₹87,389 |
+| 2025 | EVB   |     87 |    39.1% |                 0.66 |               0.50 |          57.4 |       43.92 |   ₹548,967 |          1.89 |       -5.4 |   -₹67,427 |
+| 2026 | EVB   |    126 |    46.0% |                 0.97 |               0.82 |         121.7 |      102.89 | ₹1,286,123 |          2.68 |       -6.4 |   -₹79,376 |
 
-| Year | Setup | Trades | Win Rate | Expectancy (Gross R) | Expectancy (Net R) | Total R (Gross) | Total R (Net) | Total PnL | Profit Factor | Max DD (R) | Max DD (₹) |
-|-----:|:-----:|-------:|---------:|---------------------:|-------------------:|----------------:|--------------:|----------:|--------------:|-----------:|-----------:|
-| 2021 |  EMB  |     40 |    40.0% |                 0.63 |               0.48 |            25.2 |         19.05 |  ₹190,485 |          1.91 |       -4.6 |   ₹-45,978 |
-| 2021 |  EVB  |      3 |    33.3% |                 0.57 |               0.41 |             1.7 |          1.22 |   ₹12,214 |          1.91 |       -0.6 |    ₹-6,120 |
-| 2022 |  EMB  |     49 |    36.7% |                 0.58 |               0.42 |            28.4 |         20.63 |  ₹206,329 |          1.80 |       -4.3 |   ₹-42,758 |
-| 2022 |  EVB  |      6 |    16.7% |                -0.05 |              -0.23 |            -0.3 |         -1.37 |  ₹-13,705 |          0.62 |       -2.9 |   ₹-28,752 |
-| 2023 |  EMB  |     67 |    40.3% |                 0.71 |               0.56 |            47.7 |         37.38 |  ₹373,754 |          2.20 |       -3.8 |   ₹-38,000 |
-| 2023 |  EVB  |     29 |    20.7% |                -0.02 |              -0.19 |            -0.5 |         -5.50 |  ₹-55,001 |          0.67 |      -10.1 |  ₹-100,698 |
-| 2024 |  EMB  |    191 |    40.8% |                 0.65 |               0.50 |           124.6 |         95.00 |  ₹950,038 |          1.98 |       -9.8 |   ₹-97,803 |
-| 2024 |  EVB  |     51 |    52.9% |                 0.90 |               0.75 |            45.7 |         38.20 |  ₹382,038 |          2.99 |       -3.1 |   ₹-31,331 |
-| 2025 |  EMB  |    147 |    43.5% |                 0.70 |               0.55 |           103.0 |         80.45 |  ₹804,531 |          2.26 |       -4.7 |   ₹-47,244 |
-| 2025 |  EVB  |     50 |    42.0% |                 0.72 |               0.57 |            36.2 |         28.40 |  ₹283,976 |          2.35 |       -4.6 |   ₹-46,398 |
-| 2026 |  EMB  |    120 |    40.8% |                 0.72 |               0.56 |            86.0 |         67.45 |  ₹674,517 |          2.27 |       -4.5 |   ₹-45,123 |
-| 2026 |  EVB  |     47 |    48.9% |                 0.92 |               0.77 |            43.3 |         36.21 |  ₹362,128 |          3.03 |       -3.2 |   ₹-32,478 |
 
 ---
 
