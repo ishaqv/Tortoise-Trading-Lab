@@ -1,6 +1,6 @@
 import os
 import time
-from collections import deque, defaultdict
+from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
@@ -29,25 +29,9 @@ REPORT_FOLDER = "reports"
 entry_slippage_bp = 2
 stop_slippage_bp = 4
 exit_model = ExitModel.STATIC
-target_r = 4.25
-
-# --------------------------------------------------------------
-# Trailing-stop distance (used by ExitModel.DYNAMIC after T1/partial
-# is booked). Deliberately NOT ATR-based: the stop trails behind the
-# lowest low (long) / highest high (short) of the last
-# ROLLING_TRAIL_LOOKBACK closed candles — a level readable straight
-# off a chart, so this can be executed manually (check the last N
-# candles, move the SL order if it improves) rather than requiring
-# an automated bot recomputing ATR every bar.
-# Smaller = tighter (locks in more, exits sooner on pullbacks).
-# Larger = looser (rides out bigger dips, gives back more on reversals).
-# --------------------------------------------------------------
+target_r = 4
 ROLLING_TRAIL_LOOKBACK = 3
 R = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
-# ==========================================================
-# Dynamic Round Trip Cost Calculator
-# ==========================================================
-
 # ----------------------------
 # CONFIGURATION
 # ----------------------------
@@ -99,6 +83,40 @@ def get_tick_size(price: float) -> float:
         return 5.00
 
 
+def calculate_order_cost(price: float, quantity: int, side: str):
+    """Calculate charges for one buy or sell order."""
+    value = price * quantity
+
+    brokerage = min(
+        NSE_EQUITY_INTRADAY_CHARGES["brokerage_cap"],
+        value * NSE_EQUITY_INTRADAY_CHARGES["brokerage_rate"]
+    )
+
+    if side.lower() == "buy":
+        stt = 0.0
+        stamp = value * NSE_EQUITY_INTRADAY_CHARGES["stamp"]
+    elif side.lower() == "sell":
+        stt = value * NSE_EQUITY_INTRADAY_CHARGES["stt"]
+        stamp = 0.0
+    else:
+        raise ValueError("side must be 'buy' or 'sell'")
+
+    exchange = value * NSE_EQUITY_INTRADAY_CHARGES["exchange"]
+    sebi = value * NSE_EQUITY_INTRADAY_CHARGES["sebi"]
+    gst = (brokerage + exchange) * NSE_EQUITY_INTRADAY_CHARGES["gst"]
+
+    return {
+        "value": value,
+        "brokerage": brokerage,
+        "stt": stt,
+        "exchange": exchange,
+        "sebi": sebi,
+        "stamp": stamp,
+        "gst": gst,
+        "total": brokerage + stt + exchange + sebi + stamp + gst,
+    }
+
+
 def calculate_round_trip_cost(
         entry_price: float,
         exit_price: float,
@@ -118,96 +136,20 @@ def calculate_round_trip_cost(
     dict
     """
 
-    buy_value = entry_price * quantity
-    sell_value = exit_price * quantity
-
-    turnover = buy_value + sell_value
-
-    # --------------------------------------------------
-    # Brokerage
-    # --------------------------------------------------
-
-    brokerage_buy = min(
-        NSE_EQUITY_INTRADAY_CHARGES["brokerage_cap"],
-        buy_value * NSE_EQUITY_INTRADAY_CHARGES["brokerage_rate"]
-    )
-
-    brokerage_sell = min(
-        NSE_EQUITY_INTRADAY_CHARGES["brokerage_cap"],
-        sell_value * NSE_EQUITY_INTRADAY_CHARGES["brokerage_rate"]
-    )
-
-    brokerage = brokerage_buy + brokerage_sell
-
-    # --------------------------------------------------
-    # STT (Sell side only)
-    # --------------------------------------------------
-
-    stt = sell_value * NSE_EQUITY_INTRADAY_CHARGES["stt"]
-
-    # --------------------------------------------------
-    # Exchange Charges
-    # --------------------------------------------------
-
-    exchange = turnover * NSE_EQUITY_INTRADAY_CHARGES["exchange"]
-
-    # --------------------------------------------------
-    # SEBI Charges
-    # --------------------------------------------------
-
-    sebi = turnover * NSE_EQUITY_INTRADAY_CHARGES["sebi"]
-
-    # --------------------------------------------------
-    # Stamp Duty (Buy side only)
-    # --------------------------------------------------
-
-    stamp = buy_value * NSE_EQUITY_INTRADAY_CHARGES["stamp"]
-
-    # --------------------------------------------------
-    # GST
-    # GST applies only to Brokerage + Exchange Charges
-    # --------------------------------------------------
-
-    gst = (
-                  brokerage +
-                  exchange
-          ) * NSE_EQUITY_INTRADAY_CHARGES["gst"]
-
-    # --------------------------------------------------
-    # Total
-    # --------------------------------------------------
-
-    total = (
-            brokerage +
-            stt +
-            exchange +
-            sebi +
-            stamp +
-            gst
-    )
+    buy = calculate_order_cost(entry_price, quantity, "buy")
+    sell = calculate_order_cost(exit_price, quantity, "sell")
 
     return {
-
-        "buy_value": round(buy_value, 2),
-
-        "sell_value": round(sell_value, 2),
-
-        "turnover": round(turnover, 2),
-
-        "brokerage": round(brokerage, 2),
-
-        "stt": round(stt, 2),
-
-        "exchange": round(exchange, 2),
-
-        "sebi": round(sebi, 2),
-
-        "stamp": round(stamp, 2),
-
-        "gst": round(gst, 2),
-
-        "total": round(total, 2)
-
+        "buy_value": round(buy["value"], 2),
+        "sell_value": round(sell["value"], 2),
+        "turnover": round(buy["value"] + sell["value"], 2),
+        "brokerage": round(buy["brokerage"] + sell["brokerage"], 2),
+        "stt": round(sell["stt"], 2),
+        "exchange": round(buy["exchange"] + sell["exchange"], 2),
+        "sebi": round(buy["sebi"] + sell["sebi"], 2),
+        "stamp": round(buy["stamp"], 2),
+        "gst": round(buy["gst"] + sell["gst"], 2),
+        "total": round(buy["total"] + sell["total"], 2),
     }
 
 
@@ -318,7 +260,7 @@ def compute_quantity(entry_price, risk_per_share):
 def process_symbol(
         symbol,
         instrument_token,
-        partial_exit_pct=0.4,  # 0.5 = 50%, 0.3 = 30%
+        partial_exit_pct=0.5,  # Partial exit: sell 50% at T1, 50% at T2
         entry_buffer_multiplier=2
 ):
     ENTRY_LOOKAHEAD_CANDLES = 5
@@ -345,15 +287,6 @@ def process_symbol(
 
     results = []
 
-    # signals_produced: number of times analyze_stock_for_setup found a
-    # valid setup (a "signal"), regardless of whether price ever traded
-    # through the entry trigger.
-    # entries_taken: number of those signals where the entry trigger
-    # actually got filled within ENTRY_LOOKAHEAD_CANDLES. May be >=
-    # the number of trades in `results`, since a filled entry can still
-    # be dropped afterward (e.g. no post-entry data, degenerate risk).
-    # Tracked PER SETUP (result["Setup"]) so conversion can be compared
-    # setup-by-setup instead of only as one blended number.
     signals_by_setup = defaultdict(lambda: {"signals": 0, "entries": 0})
 
     day_groups = {d: g for d, g in df.groupby('day')}
@@ -463,11 +396,6 @@ def process_symbol(
                     if row.low <= trigger_price <= row.high:
                         entry_price = trigger_price
 
-                        # Slippage does NOT shift the entry fill (and
-                        # therefore does not shift stop/target geometry).
-                        # It is tracked as a separate per-share cost and
-                        # deducted only from the rupee P&L later.
-
                         entry_slippage_per_share = (
                                 entry_price * entry_slippage_bp / 10000
 
@@ -503,9 +431,6 @@ def process_symbol(
 
                 qty, _ = compute_quantity(entry_price, risk)
 
-                # Exit-side slippage cost (per share), only ever set when
-                # the trade actually exits via a stop-loss / trailing stop.
-                # Stays 0 for target / EOD exits.
                 exit_slippage_per_share = 0.0
 
                 # ==========================================================
@@ -533,7 +458,9 @@ def process_symbol(
                 # ==========================================================
                 # DYNAMIC TARGETS
                 # ==========================================================
-                final_target_r = target_r * 3
+                # T1 = target_r (sell 50%)
+                # T2 = 2.0 * T1 (sell remaining 50%)
+                final_target_r = target_r * 2
                 if is_long:
 
                     partial_target = (
@@ -563,7 +490,6 @@ def process_symbol(
                 # ==========================================================
 
                 max_r_execution = 0
-                max_r_full_day = 0
                 mae_r = 0
 
                 exit_price = None
@@ -573,10 +499,6 @@ def process_symbol(
                 pnl_r = None
                 trade_status = None
 
-                # T1 = partial/first target, T2 = final target.
-                # Tracked independently of trade_status/exit reason so we
-                # can report "hit T2", "hit T1 but not T2", "never hit T1"
-                # regardless of how/where the trade eventually exited.
                 t1_hit = False
                 t2_hit = False
 
@@ -585,26 +507,13 @@ def process_symbol(
                 # ==========================================================
 
                 partial_booked = False
-
-                booked_position = partial_exit_pct
                 remaining_position = 1 - partial_exit_pct
 
                 realized_r = 0
-
-                trailing_stop = stop_loss
-
-                # IMPORTANT:
-                # trailing stop becomes active NEXT candle only
-                pending_trailing_stop = None
-
-                # ------------------------------------------------------
-                # RECENT CANDLE LOWS/HIGHS
-                # ------------------------------------------------------
-                # Rolling history of the last ROLLING_TRAIL_LOOKBACK closed
-                # candles' lows (long) / highs (short), used below to
-                # compute a trail a person can read straight off a chart:
-                # "lowest low of the last N candles" — no ATR, no R-math.
-                recent_extremes = deque(maxlen=ROLLING_TRAIL_LOOKBACK)
+                breakeven_stop = entry_price
+                booked_qty = max(0, min(qty, int(round(qty * partial_exit_pct))))
+                remaining_qty = qty - booked_qty
+                t1_exit_price = None
 
                 # ==========================================================
                 # EXECUTION LOOP
@@ -616,23 +525,6 @@ def process_symbol(
                     low = row.low
                     close = row.close
                     dt = row.trade_date
-
-                    # ------------------------------------------------------
-                    # ACTIVATE PENDING TRAILING STOP
-                    # ------------------------------------------------------
-
-                    if pending_trailing_stop is not None:
-                        trailing_stop = pending_trailing_stop
-                        pending_trailing_stop = None
-
-                    # ------------------------------------------------------
-                    # TRACK ROLLING CANDLE EXTREMES
-                    # ------------------------------------------------------
-                    # Appended every bar (not just after partial) so that
-                    # once T1 fires, the last N candles' worth of history
-                    # is already available rather than starting empty.
-
-                    recent_extremes.append(low if is_long else high)
 
                     # ------------------------------------------------------
                     # UPDATE MFE / MAE
@@ -698,9 +590,6 @@ def process_symbol(
                                 target_r
                             )
 
-                            # STATIC model has only one target, which sits
-                            # at the same R multiple as T1 in the dynamic
-                            # model. There is no separate T2 leg here.
                             t1_hit = True
                             t2_hit = False
 
@@ -766,17 +655,34 @@ def process_symbol(
 
                                 partial_booked = True
                                 t1_hit = True
+                                t1_exit_price = partial_target
 
                                 realized_r += (
-                                        booked_position *
+                                        partial_exit_pct *
                                         target_r
                                 )
 
-                                # Move to breakeven
-                                # ACTIVE NEXT CANDLE
-                                pending_trailing_stop = (
-                                    entry_price
+                                same_candle_t2_hit = (
+                                    high >= final_target if is_long
+                                    else low <= final_target
                                 )
+
+                                if same_candle_t2_hit:
+                                    t2_hit = True
+                                    realized_r += (
+                                            remaining_position *
+                                            final_target_r
+                                    )
+                                    pnl_r = realized_r
+                                    exit_price = final_target
+                                    trade_status = "Win"
+                                    exit_time = dt
+                                    exit_index = row.Index
+                                    break
+
+                                # Move the remaining position's SL to BE.
+                                # The BE stop is effective from the next candle.
+
 
                             elif stop_hit:
 
@@ -795,50 +701,7 @@ def process_symbol(
 
                                 break
 
-                        # --------------------------------------------------
-                        # AFTER PARTIAL EXIT
-                        # --------------------------------------------------
-
                         else:
-
-                            # ----------------------------------------------
-                            # ROLLING N-CANDLE TRAIL (manually executable)
-                            # ----------------------------------------------
-                            # Previously an ATR-based chandelier trail —
-                            # accurate, but requires recomputing ATR every
-                            # candle for every open position, which isn't
-                            # realistic to execute by hand. This version
-                            # uses only what's visible on the chart: the
-                            # lowest low (long) / highest high (short) of
-                            # the last ROLLING_TRAIL_LOOKBACK closed candles.
-                            # A person managing one position can check this
-                            # every candle close and move their SL order to
-                            # match — no ATR, no R-arithmetic. Naturally
-                            # volatility-adaptive the same way ATR is
-                            # (recent lows sit further away in a choppy
-                            # stock, closer in a calm one) without requiring
-                            # any calculation beyond "what's the lowest low
-                            # of the last few candles". The stop only ever
-                            # moves in the favorable direction (monotonic)
-                            # and never below breakeven.
-
-                            if is_long:
-
-                                candidate_stop = min(recent_extremes)
-
-                                if candidate_stop > trailing_stop:
-                                    pending_trailing_stop = candidate_stop
-
-                            else:
-
-                                candidate_stop = max(recent_extremes)
-
-                                if candidate_stop < trailing_stop:
-                                    pending_trailing_stop = candidate_stop
-
-                            # ----------------------------------------------
-                            # EXIT CHECKS
-                            # ----------------------------------------------
 
                             if is_long:
 
@@ -846,8 +709,8 @@ def process_symbol(
                                         high >= final_target
                                 )
 
-                                trailing_stop_hit = (
-                                        low <= trailing_stop
+                                breakeven_stop_hit = (
+                                        low <= breakeven_stop
                                 )
 
                             else:
@@ -856,12 +719,11 @@ def process_symbol(
                                         low <= final_target
                                 )
 
-                                trailing_stop_hit = (
-                                        high >= trailing_stop
+                                breakeven_stop_hit = (
+                                        high >= breakeven_stop
                                 )
 
-                            # INTRABAR PRIORITY: FINAL TARGET FIRST
-
+                            # INTRABAR PRIORITY: T2 FIRST
                             if final_target_hit:
 
                                 t2_hit = True
@@ -872,51 +734,20 @@ def process_symbol(
                                 )
 
                                 pnl_r = realized_r
-
                                 exit_price = final_target
-
                                 trade_status = "Win"
-
                                 exit_time = dt
                                 exit_index = row.Index
 
                                 break
 
-                            elif trailing_stop_hit:
+                            elif breakeven_stop_hit:
 
-                                exit_price = trailing_stop
+                                exit_price = breakeven_stop
 
-                                exit_slippage_per_share = (
-                                        exit_price * stop_slippage_bp / 10000
-                                )
-
-                                if is_long:
-
-                                    trailing_r = (
-                                            (trailing_stop - entry_price)
-                                            / risk
-                                    )
-
-                                else:
-
-                                    trailing_r = (
-                                            (entry_price - trailing_stop)
-                                            / risk
-                                    )
-
-                                realized_r += (
-                                        remaining_position *
-                                        trailing_r
-                                )
-
+                                # BE exit on the remaining 50% contributes 0R.
                                 pnl_r = realized_r
-
-                                trade_status = (
-                                    "Win"
-                                    if pnl_r > 0
-                                    else "Loss"
-                                )
-
+                                trade_status = "Win" if pnl_r > 0 else "Loss"
                                 exit_time = dt
                                 exit_index = row.Index
 
@@ -1063,13 +894,42 @@ def process_symbol(
                     0,
                     exit_pos - entry_index
                 )
+                entry_cost = calculate_order_cost(entry_price, qty, "buy")
 
-                # ==========================================================
-                # STORE RESULT
-                # ==========================================================
+                if exit_model == ExitModel.DYNAMIC and t1_hit:
+                    t1_cost = calculate_order_cost(
+                        t1_exit_price, booked_qty, "sell"
+                    )
+                    final_cost = calculate_order_cost(
+                        exit_price, remaining_qty, "sell"
+                    )
+                    ROUND_TRIP_COST = round(
+                        entry_cost["total"] +
+                        t1_cost["total"] +
+                        final_cost["total"],
+                        2
+                    )
+                else:
+                    exit_cost = calculate_order_cost(exit_price, qty, "sell")
+                    ROUND_TRIP_COST = round(
+                        entry_cost["total"] + exit_cost["total"],
+                        2
+                    )
 
-                ROUND_TRIP_COST = calculate_round_trip_cost(entry_price, exit_price, qty).get(
-                    "total")
+                entry_slippage_cost = entry_slippage_per_share * qty
+                exit_slippage_cost = 0.0
+                if exit_model == ExitModel.DYNAMIC and t1_hit:
+                    if exit_price == breakeven_stop and trade_status is not None:
+                        exit_slippage_cost = (
+                                                     breakeven_stop * stop_slippage_bp / 10000
+                                             ) * remaining_qty
+                else:
+                    exit_slippage_cost = exit_slippage_per_share * qty
+
+                total_slippage_cost = entry_slippage_cost + exit_slippage_cost
+                gross_pnl = pnl_r * risk * qty
+                net_pnl = gross_pnl - total_slippage_cost - ROUND_TRIP_COST
+
                 result.update({
 
                     "Window": window["name"],
@@ -1096,62 +956,32 @@ def process_symbol(
 
                     "Status": trade_status,
 
-                    # Target-hit flags (see "TRADE STATE" section above for
-                    # exactly where each is set).
                     "T1_Hit": t1_hit,
                     "T2_Hit": t2_hit,
 
-                    # Gross PnL (before costs) vs Net PnL (after slippage
-                    # cost + flat round-trip brokerage/STT/other charges).
-                    # Note: R itself (and target/SL levels) is computed off
-                    # the clean signal price — slippage only hits the
-                    # rupee P&L, never the trade geometry.
                     "Gross PnL": round(pnl_r * risk * qty, 2),
 
                     "SlippagePerShare": round(
-                        entry_slippage_per_share + exit_slippage_per_share, 4
+                        total_slippage_cost / qty if qty else 0.0, 4
                     ),
 
                     "SlippageCost": round(
-                        (entry_slippage_per_share + exit_slippage_per_share)
-                        * qty, 2
+                        total_slippage_cost, 2
                     ),
 
                     "RoundTripCost": ROUND_TRIP_COST,
 
-                    "Net PnL": round(
-                        pnl_r * risk * qty
-                        - (entry_slippage_per_share + exit_slippage_per_share) * qty
-                        - ROUND_TRIP_COST, 2
-                    ),
+                    "Net PnL": round(net_pnl, 2),
 
                     "Profit Amount": (
-                        round(
-                            pnl_r * risk * qty
-                            - (entry_slippage_per_share + exit_slippage_per_share) * qty
-                            - ROUND_TRIP_COST, 2
-                        )
-                        if (
-                                   pnl_r * risk * qty
-                                   - (entry_slippage_per_share + exit_slippage_per_share) * qty
-                                   - ROUND_TRIP_COST
-                           ) > 0
+                        round(net_pnl, 2)
+                        if net_pnl > 0
                         else 0
                     ),
 
                     "Loss Amount": (
-                        round(
-                            abs(
-                                pnl_r * risk * qty
-                                - (entry_slippage_per_share + exit_slippage_per_share) * qty
-                                - ROUND_TRIP_COST
-                            ), 2
-                        )
-                        if (
-                                   pnl_r * risk * qty
-                                   - (entry_slippage_per_share + exit_slippage_per_share) * qty
-                                   - ROUND_TRIP_COST
-                           ) < 0
+                        round(abs(net_pnl), 2)
+                        if net_pnl < 0
                         else 0
                     ),
 
@@ -1229,7 +1059,7 @@ def apply_dynamic_compounding(df,
 
     ₹ PnL per trade = price-based R × qty × risk_per_share, net of:
       - slippage cost = SlippagePerShare × qty
-      - a flat ROUND_TRIP_COST (brokerage + STT + other charges)
+      - ROUND_TRIP_COST (all actual entry + exit orders, including partial exits)
     """
     pnl_list = []
     gross_pnl_list = []
