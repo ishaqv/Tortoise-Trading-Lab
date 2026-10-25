@@ -35,7 +35,7 @@ def is_strong_breakout_candle(breakout_candle,
 
 
 def is_valid_opening_gap(gap_pct, max_opening_gap_pct):
-    return gap_pct <= max_opening_gap_pct
+    return -max_opening_gap_pct < gap_pct <= max_opening_gap_pct
 
 
 def is_liquid_breakout(participation_rate, max_participation_rate):

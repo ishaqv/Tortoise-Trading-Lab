@@ -39,7 +39,9 @@ def calculate_opening_gap(df_trading_day, df_previous_day):
     if yesterday_close <= 0:
         return 0.0
 
-    return round(abs(today_open - yesterday_close) / yesterday_close * 100, 1)
+    return round(
+        (today_open - yesterday_close) / yesterday_close * 100, 1
+    )
 
 
 def add_technical_indicators(df):
@@ -218,9 +220,6 @@ def detect_setup(breakout_candle, breakout_time, participation_rate, opening_gap
 
     if is_volume_explosion_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
         return IntradaySetupType.EVB, EntryType.LONG
-
-    # if is_early_momentum_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
-    #     return IntradaySetupType.EMB, EntryType.LONG
 
     return None, None
 
