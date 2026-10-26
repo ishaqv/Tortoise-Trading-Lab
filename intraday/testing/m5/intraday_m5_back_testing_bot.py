@@ -263,7 +263,7 @@ def process_symbol(
         partial_exit_pct=0.5,  # Partial exit: sell 50% at T1, 50% at T2
         entry_buffer_multiplier=2
 ):
-    ENTRY_LOOKAHEAD_CANDLES = 5
+    ENTRY_LOOKAHEAD_CANDLES = 4
 
     initialize_logger(
         TradeType.INTRADAY,
@@ -286,12 +286,16 @@ def process_symbol(
     add_technical_indicators(df)
 
     results = []
+    skipped_trades = []
 
-    signals_by_setup = defaultdict(lambda: {"signals": 0, "entries": 0})
+    signals_by_setup = defaultdict(lambda: {"signals": 0, "entries": 0, "signal_dates": []})
 
     day_groups = {d: g for d, g in df.groupby('day')}
 
     for trading_day, df_day in day_groups.items():
+        # Enforce at most one accepted signal per setup for this symbol/day.
+        # process_symbol handles one symbol, so the symbol dimension is implicit.
+        seen_setups_today = set()
 
         for window in BREAKOUT_WINDOWS:
 
@@ -332,7 +336,12 @@ def process_symbol(
                     continue
 
                 setup_name = result.get("Setup", "UNKNOWN")
+                if setup_name in seen_setups_today:
+                    continue
+                seen_setups_today.add(setup_name)
+
                 signals_by_setup[setup_name]["signals"] += 1
+                signals_by_setup[setup_name]["signal_dates"].append(trading_day)
 
                 is_long = (
                         result["Entry Type"] ==
@@ -353,14 +362,13 @@ def process_symbol(
                     continue
 
                 confirmation_candle = df_after_breakout.iloc[0]
-                candle_after_confirmation = df_after_breakout.iloc[1]
 
-                # Exhaustion Move Filter - wait one more candle before making an entry
-                if confirmation_candle["volume"] > breakout_candle["volume"] and confirmation_candle["high"] > \
+                # Exhaustion Move Filter
+                if confirmation_candle["volume"] > breakout_candle["volume"] and confirmation_candle["close"] > \
                         breakout_candle["high"]:
-                    df_entry_window = df_after_breakout.iloc[2:1 + ENTRY_LOOKAHEAD_CANDLES]
-                else:
-                    df_entry_window = df_after_breakout.iloc[1:1 + ENTRY_LOOKAHEAD_CANDLES]
+                    continue
+
+                df_entry_window = df_after_breakout.iloc[1:1 + ENTRY_LOOKAHEAD_CANDLES]
 
                 # ==========================================================
                 # ENTRY TRIGGER
@@ -369,15 +377,9 @@ def process_symbol(
 
                 if is_long:
 
-                    if confirmation_candle["volume"] > breakout_candle["volume"] and breakout_candle["high"] < \
-                            confirmation_candle["high"]:
-                        trigger_price = (
-                                candle_after_confirmation["high"] + entry_buffer_multiplier * tick_size
-                        )
-                    else:
-                        trigger_price = (
+                    trigger_price = (
                                 confirmation_candle["high"] + entry_buffer_multiplier * tick_size
-                        )
+                    )
 
                 else:
 
@@ -413,6 +415,14 @@ def process_symbol(
                         break
 
                 if not entry_filled:
+                    skipped_trade = {
+                        "Symbol": symbol,
+                        "Date": trading_day,
+                        "Day": pd.Timestamp(trading_day).day_name(),
+                        "Setup": setup_name,
+                    }
+
+                    skipped_trades.append(skipped_trade)
                     continue
 
                 signals_by_setup[setup_name]["entries"] += 1
@@ -1003,7 +1013,7 @@ def process_symbol(
 
                 results.append(result)
 
-    return results, dict(signals_by_setup)
+    return results, dict(signals_by_setup), skipped_trades
 
 
 # =========================================================
@@ -1219,7 +1229,7 @@ def calculate_max_dd_duration_days(df):
     return max_duration_days
 
 
-def print_key_metrics_table(df, window=20):
+def print_key_metrics_table(df, window=20, signal_dates=None):
     """
     Single consolidated table of every decision-relevant metric.
     Replaces the old scattered CORE PERFORMANCE / RISK METRICS /
@@ -1375,21 +1385,55 @@ def print_key_metrics_table(df, window=20):
 
     table = pd.DataFrame(rows, columns=["Category", "Metric", "Value"]).drop(columns="Category")
 
-    print("\n=======================================================")
-    print("  KEY METRICS SUMMARY")
-    print("=======================================================")
-    print(table.to_string(index=False))
-
-    # CSV export — full rolling series kept separately for charting trend
-    os.makedirs(REPORT_FOLDER, exist_ok=True)
-    table.to_csv(os.path.join(REPORT_FOLDER, "key_metrics_summary.csv"), index=False)
-
     # Per-calendar-month trade counts, so Max/Min/Avg Trades per Month above
     # can be traced back to the actual months driving them.
     monthly_counts_df = monthly_trade_counts.rename("Trades").reset_index()
     monthly_counts_df.columns = ["Month", "Trades"]
     monthly_counts_df["Month"] = monthly_counts_df["Month"].astype(str)
     monthly_counts_df.to_csv(os.path.join(REPORT_FOLDER, "monthly_trade_counts.csv"), index=False)
+
+    # Signal frequency metrics include every generated signal, even if no entry filled.
+    signal_dates = pd.to_datetime(pd.Series(signal_dates or []), errors="coerce").dropna()
+    if not signal_dates.empty:
+        signal_start = signal_dates.min()
+        signal_end = signal_dates.max()
+        signal_months_span = max((signal_end - signal_start).days / 30.44, 1e-6)
+        signals_per_month_span = len(signal_dates) / signal_months_span
+        monthly_signal_counts = signal_dates.dt.to_period("M").value_counts().sort_index()
+        avg_signals_month_calendar = monthly_signal_counts.mean()
+        max_signals_month = int(monthly_signal_counts.max())
+        min_signals_month = int(monthly_signal_counts.min())
+    else:
+        signals_per_month_span = 0.0
+        avg_signals_month_calendar = 0.0
+        max_signals_month = 0
+        min_signals_month = 0
+        monthly_signal_counts = pd.Series(dtype="int64")
+
+    signal_metric_rows = pd.DataFrame([
+        {"Metric": "Avg Signals / Month (span-based)", "Value": f"{signals_per_month_span:.2f}"},
+        {"Metric": "Avg Signals / Month (calendar)", "Value": f"{avg_signals_month_calendar:.2f}"},
+        {"Metric": "Max Signals / Month", "Value": str(max_signals_month)},
+        {"Metric": "Min Signals / Month", "Value": str(min_signals_month)},
+    ])
+    table = pd.concat([table, signal_metric_rows], ignore_index=True)
+
+    # Print/export only after signal metrics have been appended.
+    print("\\n=======================================================")
+    print("  KEY METRICS SUMMARY")
+    print("=======================================================")
+    print(table.to_string(index=False))
+
+    os.makedirs(REPORT_FOLDER, exist_ok=True)
+    table.to_csv(os.path.join(REPORT_FOLDER, "key_metrics_summary.csv"), index=False)
+
+    if not monthly_signal_counts.empty:
+        monthly_signal_df = monthly_signal_counts.rename("Signals").reset_index()
+        monthly_signal_df.columns = ["Month", "Signals"]
+        monthly_signal_df["Month"] = monthly_signal_df["Month"].astype(str)
+        monthly_signal_df.to_csv(
+            os.path.join(REPORT_FOLDER, "monthly_signal_counts.csv"), index=False
+        )
 
     if len(df) >= window:
         rolling_df = pd.DataFrame({
@@ -1700,10 +1744,11 @@ def print_signal_conversion_summary(signals_by_setup):
 
 def backtest_historical_data_parallel(symbols_dict, max_workers=8):
     all_results = []
+    all_skipped_trades = []
 
     # Aggregated across every symbol, per setup, regardless of whether that
     # symbol ended up contributing any completed trades to all_results.
-    total_by_setup = defaultdict(lambda: {"signals": 0, "entries": 0})
+    total_by_setup = defaultdict(lambda: {"signals": 0, "entries": 0, "signal_dates": []})
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {
@@ -1714,16 +1759,35 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
         for future in as_completed(futures):
             sym = futures[future]
             try:
-                result, signals_by_setup = future.result()
+                result, signals_by_setup, skipped_trades = future.result()
+                all_skipped_trades.extend(skipped_trades)
                 for setup, c in signals_by_setup.items():
                     total_by_setup[setup]["signals"] += c["signals"]
                     total_by_setup[setup]["entries"] += c["entries"]
+                    total_by_setup[setup]["signal_dates"].extend(c.get("signal_dates", []))
                 if result:
                     all_results.append(pd.DataFrame(result))
             except Exception as e:
                 print(f"Error processing {sym}: {e}")
 
+    # Write one fresh skipped-trades report per backtest run. Deduplicate by
+    # symbol/date/setup so old runs and duplicate rows cannot pollute the report.
+    os.makedirs(REPORT_FOLDER, exist_ok=True)
+    skipped_trades_path = os.path.join(REPORT_FOLDER, "skipped_trades.csv")
+    skipped_columns = ["Symbol", "Date", "Day", "Setup"]
+    skipped_df = pd.DataFrame(all_skipped_trades, columns=skipped_columns)
+    if not skipped_df.empty:
+        skipped_df["Date"] = pd.to_datetime(skipped_df["Date"]).dt.strftime("%Y-%m-%d")
+        skipped_df = skipped_df.drop_duplicates(subset=["Symbol", "Date", "Setup"])
+        skipped_df = skipped_df.sort_values(["Date", "Symbol", "Setup"])
+    skipped_df.to_csv(skipped_trades_path, index=False)
+
     print_signal_conversion_summary(dict(total_by_setup))
+    all_signal_dates = [
+        signal_date
+        for counts in total_by_setup.values()
+        for signal_date in counts.get("signal_dates", [])
+    ]
 
     if not all_results:
         print("No trades found.")
@@ -1738,7 +1802,7 @@ def backtest_historical_data_parallel(symbols_dict, max_workers=8):
 
     df = apply_dynamic_compounding(df)
 
-    print_key_metrics_table(df)
+    print_key_metrics_table(df, signal_dates=all_signal_dates)
     if exit_model == ExitModel.DYNAMIC:
         print_target_hit_summary(df)
     print_setup_summary(df)
