@@ -163,12 +163,13 @@ Volume ≥ 15x average volume (SMA 20 volume)
 **Concept:** Identifies stocks that initially showed bullish momentum but failed to sustain it, leading to a reversal.
 This setup reuses the same candidates flagged by the Breakout scanner (from setup 1/2), but trades them in
 the opposite direction — taking SHORT positions instead of LONG.
-
-![BTR.png](BTR.png)
-
+![BTR_Pattern1.png](BTR_Pattern1.png)
+![BTR_Pattern2.png](BTR_Pattern2.png)
 **Entry Criteria:**
 
-* Wait for the **confirmation candle’s low to be broken**, and require price to **close below that low**.
+* Wait for the **confirmation candle’s low to be broken**, and require price to **close below that low**. The
+  confirmation candle need not the candle after breakout. It could be the next candle after confirmation. It must be the
+  first rejection candle.
 * **Do not enter on the first break.** Treat the first break only as a **trigger**.
 * Wait for price to **retest the confirmation candle’s low** and **close back above that level**.
 * Enter **SHORT only when price breaks below the confirmation candle’s low for the second time**.
@@ -176,8 +177,8 @@ the opposite direction — taking SHORT positions instead of LONG.
 
 **Filter Condition:**
 
-- The confirmation candle's low must be **below the VWAP** for the setup to be valid.
-- Do not enter the trade before 9.55 AM. The setup performs best when entries are taken after or around 10:00 AM.
+- The confirmation candle must be a **rejection candle, preferably RED**, for the setup to be considered valid.
+- Do not enter the trade before 9.30 AM. The setup performs best when entries are taken after or around 10:00 AM.
 
 ---
 
