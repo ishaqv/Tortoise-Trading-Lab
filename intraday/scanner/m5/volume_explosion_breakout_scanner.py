@@ -1,12 +1,13 @@
-from util.scanner_util import is_liquid_breakout, is_valid_opening_gap, is_valid_price_change, is_valid_breakout_volume
+from util.scanner_util import is_liquid_breakout, is_valid_opening_gap, is_valid_breakout_volume, \
+    is_valid_price_change
 from util.trade_logger import log
 
 # ── CONFIG ────────────────
 MIN_PRICE_CHANGE = 3.5
 MAX_PRICE_CHANGE = 9.0
-MAX_OPENING_GAP_PCT = 5.0
+MAX_OPENING_GAP_PCT = 3.0
 MAX_PARTICIPATION_RATE = 2.0
-MIN_VOLUME_MULTIPLIER = 10
+MIN_VOLUME_MULTIPLIER = 7
 IDEAL_PARTICIPATION_RATE = 0.35
 
 def is_volume_explosion_breakout_detected(breakout_candle, participation_rate, opening_gap_pct):
