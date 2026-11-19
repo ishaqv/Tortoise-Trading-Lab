@@ -65,8 +65,7 @@ Each entry must be in a **different stock from a different sector**. This is non
 
 ### Risk Limits
 
-Combined loss 2% of capital
-*(Based on ₹10L capital, 50/50 split, 4.5X leverage)*
+Combined loss 2% of capital *(Based on ₹10L capital, 50/50 split, 4.5X leverage)*
 **Daily loss limit: ₹20,000 (2% of capital).** If both entries stop out, close all positions and stop trading for the
 day.
 

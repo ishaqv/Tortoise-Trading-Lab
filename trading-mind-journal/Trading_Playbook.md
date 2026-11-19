@@ -38,10 +38,10 @@ candle**.
 * Place the SL-L entry order at the predefined level.
 * Verify:
 
-  * Quantity
-  * Entry price
-  * Direction (Long/Short)
-  * Product type
+    * Quantity
+    * Entry price
+    * Direction (Long/Short)
+    * Product type
 
 ---
 
@@ -69,8 +69,8 @@ After the entry candle closes:
 * Replace the emergency SL with the normal SL.
 * If price closes beyond the normal SL:
 
-  * Below it for **Long**
-  * Above it for **Short**
+    * Below it for **Long**
+    * Above it for **Short**
 * Exit immediately.
 
 **Don't hope. Don't wait.**
@@ -93,8 +93,8 @@ Consider **extending the target** or taking a **partial exit** **only if**:
 * Volume is **well above average across multiple candles**.
 * Price maintains:
 
-  * Higher High → Higher Low (Long)
-  * Lower Low → Lower High (Short)
+    * Higher High → Higher Low (Long)
+    * Lower Low → Lower High (Short)
 
 Ignore Market Depth. It is often unreliable.
 

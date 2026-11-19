@@ -1,7 +1,7 @@
 ## Edge Erosion — Mindset & Management
 
-Every setup has a lifecycle. It has a **launch phase** (edge is strong, market hasn't adapted), a **maturity phase** (
-edge stabilizes, you scale it), and a **decay phase** (edge erodes, you manage it down). Most traders only notice
+Every setup has a lifecycle. It has a **launch phase** (edge is strong, market hasn't adapted), a **maturity phase**
+(edge stabilizes, you scale it), and a **decay phase** (edge erodes, you manage it down). Most traders only notice
 they're in decay phase 6 months after it started — because cumulative PnL masks it until it's obvious.
 
 The goal of this section is to catch decay early, respond systematically, and always have the next setup ready before
@@ -91,8 +91,9 @@ run.
 A reasonable rule:
 
 > *If the 20-trade rolling expectancy reaches 0.2R or below, the setup is suspended. Risk budget is reallocated to the
-highest-expectancy active setup until the suspended setup shows recovery over a minimum of 30 forward trades at reduced
-size.*
+> highest-expectancy active setup until the suspended setup shows recovery over a minimum of 30 forward trades at
+> reduced
+> size.*
 
 Writing this down before the situation arises removes the decision from the moment. Sunk cost and recency bias make
 in-the-moment suspension decisions unreliable.

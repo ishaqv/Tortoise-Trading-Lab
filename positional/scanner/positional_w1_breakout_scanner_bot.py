@@ -1,6 +1,6 @@
+import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import math
 import pandas as pd
 from ta.trend import SMAIndicator
 from ta.volatility import AverageTrueRange

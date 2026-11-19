@@ -6,7 +6,8 @@ At entry, we don't know whether a trade will produce a normal move or an excepti
 
 If we always exit 100% at T1, we may leave a large part of a strong move on the table.
 
-But if we always keep a runner, price may hit T1, fail to continue, reverse, and eventually hit the original SL. In that case, taking 100% off at T1 would have been better.
+But if we always keep a runner, price may hit T1, fail to continue, reverse, and eventually hit the original SL. In that
+case, taking 100% off at T1 would have been better.
 
 So the goal is not to always let winners run.
 
@@ -68,4 +69,5 @@ If yes, allow more room.
 
 If no, **take T1 and protect the profit.**
 
-The objective is to protect ordinary winners while giving exceptional trades the opportunity to become exceptional winners.
+The objective is to protect ordinary winners while giving exceptional trades the opportunity to become exceptional
+winners.

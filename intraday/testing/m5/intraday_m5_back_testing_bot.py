@@ -29,7 +29,7 @@ REPORT_FOLDER = "reports"
 entry_slippage_bp = 2
 stop_slippage_bp = 4
 exit_model = ExitModel.STATIC
-target_r = 5.5
+target_r = 3
 ROLLING_TRAIL_LOOKBACK = 3
 R = TRADING_CAPITAL * MAX_RISK_PER_TRADE_PERCENT
 # ----------------------------
@@ -378,7 +378,7 @@ def process_symbol(
                 if is_long:
 
                     trigger_price = (
-                                confirmation_candle["high"] + entry_buffer_multiplier * tick_size
+                            confirmation_candle["high"] + entry_buffer_multiplier * tick_size
                     )
 
                 else:

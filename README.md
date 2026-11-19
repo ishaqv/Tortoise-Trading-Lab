@@ -174,7 +174,6 @@ the opposite direction — taking SHORT positions instead of LONG.
 * Wait for price to **retest the confirmation candle’s low** and **close back above that level**.
 * Enter **SHORT only when price breaks below the confirmation candle’s low for the second time**.
 
-
 **Filter Condition:**
 
 - The confirmation candle must be a **rejection candle, preferably RED**, for the setup to be considered valid.
@@ -467,7 +466,6 @@ Absolutely — here’s the same output converted into clean **Markdown/README t
 | 2024 | EVB   |    111 |    38.7% |                 0.62 |               0.47 |          69.2 |       52.11 |   ₹651,324 |          1.83 |       -7.0 |   -₹87,389 |
 | 2025 | EVB   |     87 |    39.1% |                 0.66 |               0.50 |          57.4 |       43.92 |   ₹548,967 |          1.89 |       -5.4 |   -₹67,427 |
 | 2026 | EVB   |    126 |    46.0% |                 0.97 |               0.82 |         121.7 |      102.89 | ₹1,286,123 |          2.68 |       -6.4 |   -₹79,376 |
-
 
 ---
 

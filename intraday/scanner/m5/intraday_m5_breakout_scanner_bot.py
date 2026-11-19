@@ -1,8 +1,8 @@
+import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 from time import sleep
 
-import math
 import numpy as np
 import pandas as pd
 from ta.volatility import AverageTrueRange
