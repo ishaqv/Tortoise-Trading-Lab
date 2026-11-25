@@ -9,6 +9,7 @@ import os
 import re
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 
 from util.global_variables import TRADING_CAPITAL, INTRADAY_LEVERAGE_MULTIPLIER
@@ -78,16 +79,16 @@ def scan_file(filename):
     # FILTER CONDITIONS
     # =========================
     filtered = df[
-        # (df["LTP"] > MIN_LTP) &
-        # (df["PRICE_CHANGE_PCT"] >= np.where(
-        #     df["PARTICIPATION_RATE"] < PARTICIPATION_THRESHOLD,
-        #     MIN_PCT_CHANGE_LOW_PARTICIPATION,
-        #     MIN_PCT_CHANGE
-        # )) &
-        # (df["PRICE_CHANGE_PCT"] <= MAX_PCT_CHANGE) &
-        # (df["GAP_PCT"] <= MAX_OPENING_GAP_PCT) &
+        (df["LTP"] > MIN_LTP) &
+        (df["PRICE_CHANGE_PCT"] >= np.where(
+            df["PARTICIPATION_RATE"] < PARTICIPATION_THRESHOLD,
+            MIN_PCT_CHANGE_LOW_PARTICIPATION,
+            MIN_PCT_CHANGE
+        )) &
+        (df["PRICE_CHANGE_PCT"] <= MAX_PCT_CHANGE) &
+        (df["GAP_PCT"] <= MAX_OPENING_GAP_PCT) &
         (df["PARTICIPATION_RATE"] < MAX_PARTICIPATION_RATE)
-        ]
+    ]
 
     if filtered.empty:
         print(f"No qualifying symbols were found for the index {index}")
